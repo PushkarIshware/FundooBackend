@@ -1,15 +1,15 @@
-from allauth.account.forms import default_token_generator, SetPasswordForm
-from django.contrib.auth import login, authenticate, update_session_auth_hash
-
-from django.contrib import messages, auth
+from django.shortcuts import render
 from django.utils.encoding import force_bytes, force_text
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.template.loader import render_to_string
+from django.views.decorators.http import require_POST
+from rest_framework.generics import CreateAPIView
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
-from django.http import HttpResponse, HttpRequest, HttpResponsePermanentRedirect, HttpResponseRedirect
-from django.shortcuts import render, resolve_url
+from django.http import HttpResponse
 from django.contrib.auth import get_user_model, authenticate
 import jwt
 import json
@@ -18,140 +18,6 @@ import re
 from django.http import JsonResponse
 
 User = get_user_model()
-
-
-def index(request):  # homepage
-    return render(request, 'index.html', {})
-
-
-def login_page(request):  # login page
-    return render(request, 'login.html')
-
-
-def logout(request):
-    auth.logout(request)
-    return render(request, 'login.html')
-
-
-'''
-sign up method which takes 4 arguments ie username, email, password and confirm password.
-and generate registration link and send it to corresponding email id.
-if valid then go to login page
-else show error message
-'''
-
-
-def Signup(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        email = data.get('email')
-        password1 = data.get('password1')
-        password2 = data.get('password2')
-
-        print(username, " ", email, " ", password1, " ", password2)
-
-        if username and email and password1 and password2 is not "":
-            print("if block")
-            if User.objects.filter(username=username).exists():  # for user and email also we can try this
-                return JsonResponse({"msg": "username already present"})
-
-            if not re.match(r'^[a-zA-Z0-9.+_-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]+$', email):
-                return JsonResponse({"msg": "Not proper email"})
-
-            if password1 == password2:
-                User.objects.create_user(username=username, email=email, password=password1, is_active=True)
-                user = User.objects.get(username=username)
-                message = render_to_string('acc_active_email.html', {
-                    'user': user,
-                    # 'domain': 'http://127.0.0.1:8000',
-                    'domain': 'localhost:4200/login',
-                    'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
-                    'token': account_activation_token.make_token(user),
-                })
-                mail_subject = 'Activate your account...'
-                to_email = email
-                send_email = EmailMessage(mail_subject, message, to=[to_email])
-                send_email.send()
-
-            else:
-                return JsonResponse({"msg": "not matching password"})
-            json_data = {
-                "username": username,
-                "email": email,
-                "password1": password1,
-                "password2": password2,
-                "msg": "please got to your mail and activate your account"
-            }
-            return JsonResponse(json_data)
-
-        else:
-            print("else block")
-            return JsonResponse({"msg": "something is empty"})
-    else:
-
-        # form = SignupForm()
-        return JsonResponse({"msg": "reg failed"})
-
-
-'''
-this is login method which is takes 2 arguments ie. username and password
-if details are correct go to dashboard 
-else show error message
-'''
-
-
-def login_user(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        print('data from Angular', data)
-        username = data.get('username')
-        print(username)
-
-        password = data.get('password')
-        print(password)
-        user = authenticate(username=username, password=password)
-        if user:
-            print("if part")
-            if user.is_active:
-                login(request, user)
-                payload = {'username': username,
-                           'password': password, }
-                token = jwt.encode(payload, "secret_key", algorithm='HS256').decode('utf-8')
-                jwt_token = {
-                    'token': token
-                }
-                print(jwt_token)
-
-                json_data = {
-                    "success": True,
-                    'username': username,
-                    'password': password,
-                    'token': token,
-                    "message": "successful login"
-                }
-                dump = json.dumps(json_data)
-                # return JsonResponse(dump)
-                return HttpResponse(dump, content_type="application/json")
-
-            else:
-                return HttpResponse("Your account was inactive.")
-        else:
-            print("else part")
-            json_data = {
-
-                "success": False,
-                "message": "UNsuccessful login"
-            }
-            return JsonResponse(json_data)
-
-    else:
-        json_data = {
-            "success": False,
-            "message": "UNSUCCESSFUL login"
-        }
-        return JsonResponse(json_data)
-
 
 '''
 this is email activation method for checking given email is valid or not.
@@ -175,3 +41,100 @@ def activate(request, uidb64, token):
             return HttpResponse('Activation link is invalid!')
     except(TypeError, ValueError, User.DoesNotExist):
         return HttpResponse('Something bad happened')
+
+
+from .serializers import registrationSerializer, LoginSerializer
+
+
+# @require_POST
+class RestRegistration(CreateAPIView):
+    serializer_class = registrationSerializer
+
+    def post(self, request, *args, **kwargs):
+        print(request.data)
+        username = request.data['username']
+        email = request.data['email']
+        password = request.data['password1']
+        user = User.objects.create_user(username=username, email=email, password=password)
+        user.is_active = False
+        user.save()
+
+        message = render_to_string('acc_active_email.html', {
+            'user': user,
+            'domain': 'http://127.0.0.1:8000',
+            # 'domain': 'http://127.0.0.1:4200',
+            'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
+            'token': account_activation_token.make_token(user),
+        })
+        mail_subject = 'Activate your account...'
+        to_email = email
+        send_email = EmailMessage(mail_subject, message, to=[to_email])
+        send_email.send()
+
+        return JsonResponse({'key': "Registered"})
+
+
+# @require_POST
+class RestLogin(CreateAPIView):
+    serializer_class = LoginSerializer
+
+    def post(self, request, *args, **kwargs):
+        res = {"message": "something bad happened",
+               "data": {},
+               "success": False}
+        print(request.data)
+        try:
+            username = request.data['username']
+            if username is None:
+                raise Exception("Username is required")
+            password = request.data['password']
+            if password is None:
+                raise Exception("password is required")
+            user = authenticate(username=username, password=password)
+            print('user-->', user)
+            if user:
+                if user.is_active:
+                    payload = {'username': username, 'password': password}
+                    # token = jwt.encode(payload, "secret_key", algorithm='HS256').decode('utf-8')
+                    jwt_token = {
+                        'token': jwt.encode(payload, "Cypher", algorithm='HS256').decode('utf-8')
+                    }
+                    print(jwt_token)
+                    token = jwt_token['token']
+                    res['message'] = "Logged in Successfully"
+                    res['data'] = token
+                    res['success'] = True
+                    return Response(res)
+                else:
+                    return Response(res)
+            if user is None:
+                return Response(res)
+        except Exception as e:
+            print(e)
+            return Response(res)
+
+
+from PIL import Image
+
+import boto3
+def profile_pic(request, *args, **kwargs):
+    if request.method=="POST":
+       #username = request.data['username']
+        username = request.POST.get('username')
+        photo = request.POST.get('pic')
+        print(photo)
+        #photo = request.data['photo']
+        # print(username, " ", photo)
+        # pic = Image.open(photo, 'r')
+        #photo.show()
+        img=request.FILES['pic']
+        image = Image.open(img)
+        #image.show()
+        s3 = boto3.client('s3')
+        key=username + ".jpeg"
+        s3.upload_fileobj(image,'fundooapp',Key=key)
+        return JsonResponse({"msg": "recieved at django"})
+    else:return render(request,'profile.html',{})
+
+
+

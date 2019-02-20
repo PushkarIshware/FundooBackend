@@ -26,22 +26,25 @@ from django.contrib.auth.views import (
     PasswordResetDoneView,
     PasswordResetConfirmView,
     PasswordResetCompleteView,
+
 )
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    path('', views.Signup, name='rest_register'),
+    # Rest Registration
+    path('api/registration', views.RestRegistration.as_view(), name="RestRegistration"),
 
-    url(r'^log_me/$', views.login_page, name='log_me'),
+    # Rest Login
+    path('api/login', views.RestLogin.as_view(), name="RestLogin"),
 
+    #Profile
+    path('api/profile',views.profile_pic, name="Profile"),
+    # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),
 
-    # path('login_user/', views.login_user, name='login_user'),
-    path('login_user/', views.login_user, name='login_user'),
-    path('logout/', views.logout, name="logout"),
-    # reset password
+    # Reset Password
 
     url(r'^password_reset/$', PasswordResetView.as_view(), name='password_reset'),
     url(r'^password_reset/done/$', PasswordResetDoneView.as_view(), name='password_reset_done'),

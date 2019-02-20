@@ -32,8 +32,8 @@ ALLOWED_HOSTS = ['127.0.0.1']
 #Email verification
 EMAIL_USE_TLS = True            # Email Tool
 EMAIL_HOST = 'smtp.gmail.com'   # gmail use SMTP protocol
-EMAIL_HOST_USER = 'fundoo.bridgelabz.pushkar@gmail.com'   # from email id
-EMAIL_HOST_PASSWORD = 'fundoo1234'  # password
+EMAIL_HOST_USER = 'fundooapp.nikhillad@gmail.com'   # from email id
+EMAIL_HOST_PASSWORD = 'nikhil007'  # password
 EMAIL_PORT = 587  # email port default
 
 AUTHENTICATION_BACKENDS = (
