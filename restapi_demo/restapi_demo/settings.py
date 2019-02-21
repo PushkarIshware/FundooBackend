@@ -28,7 +28,6 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 ALLOWED_HOSTS = ['127.0.0.1']
-
 #Email verification
 EMAIL_USE_TLS = True            # Email Tool
 EMAIL_HOST = 'smtp.gmail.com'   # gmail use SMTP protocol
