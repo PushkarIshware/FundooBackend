@@ -28,9 +28,23 @@ urlpatterns = [
     # Note
     path('api/note', views.AddNote.as_view(), name="AddNote"),
 
+    # ShowNotes
+    path('api/shownotes', views.ShowNotes.as_view(), name='ShowNotes'),
+
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),
+
+
+
+
+
+
+
+
+
+
+
 
     # Reset Password
     url(r'^password_reset/$', PasswordResetView.as_view(), name='password_reset'),

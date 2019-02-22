@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 import re
-
+from .models import Note
 User = get_user_model()
 
 
@@ -18,12 +18,12 @@ class registrationSerializer(serializers.ModelSerializer):
         model = User  # Database Model to  store the data in .
         # model=RestRegistration         # Stores data in  registration model.
         # fields='__all__'               # fields used as queryset.
-        # fields = ('username',
-        #           'email',
-        #           'password',
-        #           'password2',
-        #           )
-        fields = '__all__'
+        fields = ('username',
+                  'email',
+                  'password',
+                  'password2',
+                  )
+        #fields = '__all__'
 
     def clean(self):
         cleaned_data = super(registrationSerializer, self).clean()
@@ -44,12 +44,13 @@ class LoginSerializer(serializers.ModelSerializer):
         fields = ('username', 'password',)
 
 
-from .models import Notes
+
 
 
 class NoteSerializer(serializers.ModelSerializer):
     # Serializer for Notes
 
    class Meta:
-      model = Notes
-      fields = ('title','description','is_archived','remainder','user')
+      model = Note
+      fields = ('title','description','is_archived','reminder','user','color','is_pinned')
+

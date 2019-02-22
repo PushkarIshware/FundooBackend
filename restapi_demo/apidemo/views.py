@@ -1,30 +1,13 @@
-import io
-
-from allauth.account.forms import SetPasswordForm
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import PasswordResetForm, PasswordChangeForm
-from django.contrib.auth.tokens import default_token_generator
-from django.contrib.auth.views import PasswordContextMixin
-from django.shortcuts import render, resolve_url
-from django.utils.decorators import method_decorator
+from django.shortcuts import render
 from django.utils.encoding import force_bytes, force_text
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.template.loader import render_to_string
-from django.views.decorators.cache import never_cache
-from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.debug import sensitive_post_parameters
-from django.views.decorators.http import require_POST
-from django.views.generic import TemplateView, FormView
-from rest_auth.serializers import UserModel
-from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
-from rest_framework.reverse import reverse_lazy
-
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
-from django.http import HttpResponse, HttpResponseRedirect
-from django.contrib.auth import get_user_model, authenticate, login, update_session_auth_hash
+from django.http import HttpResponse
+from django.contrib.auth import get_user_model, authenticate
 import jwt
 import json
 from django.contrib.auth.models import User
@@ -32,6 +15,8 @@ import re
 from django.http import JsonResponse
 from PIL import Image
 import boto3
+from .serializers import registrationSerializer, LoginSerializer, NoteSerializer
+from .models import Note
 
 User = get_user_model()
 
@@ -59,10 +44,6 @@ def activate(request, uidb64, token):
         return HttpResponse('Something bad happened')
 
 
-from .serializers import registrationSerializer, LoginSerializer, NoteSerializer
-
-
-# @require_POST
 class RestRegistration(CreateAPIView):
     serializer_class = registrationSerializer
 
@@ -162,42 +143,62 @@ def UploadImg(request):
         return render(request, 'profile.html', {})
 
 
-from rest_framework import viewsets
-from .models import Notes
-
-
 class AddNote(CreateAPIView):
-    serializer_class = NoteSerializer  # serializer to add note(specifies and validate )
+    serializer_class = NoteSerializer
 
     def post(self, request, *args, **kwargs):
         try:
-            # print(request.data)
-            # print(request.data['remainder'])
-
-            res = {  # Response information .
+            res = {
                 'message': 'Something bad happened',
                 'data': {},
                 'success': False
             }
-
-            print('user--->', request.data['user'])
+            # print('user is', request.data['user'])
             serializer = NoteSerializer(data=request.data)
-            # check serialized data is valid or not
-
-            if request.data['title'] and request.data[
-                'description'] is None:  # if title and description is not provided.
+            if request.data['title'] and request.data['description'] is None:
                 raise Exception("Please add some information ")
 
             if serializer.is_valid():
-                # if valid then save it
                 serializer.save()
-                # in response return data in json format
                 res['message'] = "note added"
                 res['success'] = True
                 return Response(res)
-
-                # else return error msg in response
             return Response(res)
         except Exception as e:
             print(e)
-            # return redirect(reverse('getnotes'))
+
+
+from django.views import View
+from django.core import serializers
+from .models import Note
+
+
+class ShowNotes(View):
+
+    def get(self, request):
+        res = {
+            'message': 'Something bad happened',
+            'data': {},
+            'success': False
+        }
+        try:
+            #note_list = Note.objects.filter(user=request.user).order_by('-created_time')
+            note_list = Note.objects.values()  # user=request.user #.order_by('-created_time')   # shows note only added by specific user.
+            # print(note_list)
+        except Exception as e:
+            print(e)
+
+        res['message'] = "All Notes"
+        res['success'] = True
+        res['data'] = note_list
+
+        list=[]
+        for i in res['data']:
+            list.append(i)
+        z = json.dumps(list)
+        resz = {
+            "message": "showing data",
+            "data": {z},
+            "success": True
+        }
+        return HttpResponse(resz['data'])
