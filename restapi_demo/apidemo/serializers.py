@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 import re
 from .models import Note
+
 User = get_user_model()
 
 
@@ -13,17 +14,13 @@ class registrationSerializer(serializers.ModelSerializer):
     email = serializers.RegexField(regex=r'^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$',
                                    required=True)
 
-    class Meta:  # inner class provides a metadata to ModelForm Class.
-
-        model = User  # Database Model to  store the data in .
-        # model=RestRegistration         # Stores data in  registration model.
-        # fields='__all__'               # fields used as queryset.
+    class Meta:
+        model = User
         fields = ('username',
                   'email',
                   'password',
                   'password2',
                   )
-        #fields = '__all__'
 
     def clean(self):
         cleaned_data = super(registrationSerializer, self).clean()
@@ -40,17 +37,13 @@ class LoginSerializer(serializers.ModelSerializer):
     password = serializers.CharField(style={'input_type': 'password'})
 
     class Meta:
-        model = User  # Database Model to  store the data in .
+        model = User
         fields = ('username', 'password',)
-
-
-
 
 
 class NoteSerializer(serializers.ModelSerializer):
     # Serializer for Notes
 
-   class Meta:
-      model = Note
-      fields = ('title','description','is_archived','reminder','user','color','is_pinned')
-
+    class Meta:
+        model = Note
+        fields = ('title', 'description', 'is_archived', 'reminder', 'user', 'color', 'is_pinned')
