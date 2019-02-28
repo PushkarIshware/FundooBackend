@@ -20,7 +20,6 @@ class Note(models.Model):
     is_pinned = models.BooleanField(default=False)
     label = models.CharField(max_length=50, default=None, null=True)
     collaborate = models.ManyToManyField(User, null=True, blank=True, related_name='collaborated_user')
-    #user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_id', null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owner', null=True, blank=True)
 
 

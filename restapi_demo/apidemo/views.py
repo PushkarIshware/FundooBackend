@@ -5,7 +5,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.template.loader import render_to_string
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
-
+from rest_framework.views import APIView
 
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
@@ -86,7 +86,10 @@ class RestRegistration(CreateAPIView):
         else:
             return Response(res)
 
+
 from rest_framework.authtoken.models import Token
+
+
 # @require_POST
 class RestLogin(CreateAPIView):
     """
@@ -115,7 +118,6 @@ class RestLogin(CreateAPIView):
                 if user.is_active:
                     login(request, user)
                     user_id = request.user
-                    print("id of user---------->", user_id.id)
                     payload = {'username': username, 'password': password, "user_id": user_id.id}
                     # token = jwt.encode(payload, "secret_key", algorithm='HS256').decode('utf-8')
                     jwt_token = {
@@ -168,6 +170,7 @@ class AddNote(CreateAPIView):
     """Add Notes API"""
 
     serializer_class = NoteSerializer
+
     def post(self, request, *args, **kwargs):
         try:
             res = {
@@ -175,34 +178,34 @@ class AddNote(CreateAPIView):
                 'success': False
             }
 
-            uid = request.META['HTTP_AUTHORIZATION']
-            print(type(uid))
-            print("uid -s ---", uid)
-            userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
+            header_token = request.META['HTTP_AUTHORIZATION']
+            userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
             uid = userdata['user_id']
-            print("add notes uid------------->",uid)
 
+            if uid is None:
+                print("uid is none please login....note adding failed")
             serializer = NoteSerializer(data=request.data)
-
-            serializer.user_id=uid
 
             if request.data['title'] and request.data['description'] is None:
                 raise Exception("title and description required ")
 
             if serializer.is_valid():
-                serializer.save()
+                # serializer.user_id = uid
+                serializer.save(user_id=uid)
                 res['message'] = "note added"
                 res['success'] = True
                 return Response(res)
             return Response(res)
         except Exception as e:
-            print(e)
+            print(res, e)
+
 
 # from django.core.serializers import serialize
 
 
 class ShowNotes(View):
     """Show notes API"""
+
     def get(self, request):
         global note_data
 
@@ -215,7 +218,7 @@ class ShowNotes(View):
         print(type(uid))
         print("uid -s ---", uid)
         userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
-        uid=userdata['user_id']
+        uid = userdata['user_id']
 
         res = {
             'message': 'Something bad happened',
@@ -223,27 +226,59 @@ class ShowNotes(View):
             'success': False
         }
         try:
-
             note_data = Note.objects.filter(user_id=uid).values()
             print(type(note_data))
 
-            #print(note_data)
+            data_list = []
+            for i in note_data:
+                data_list.append(i)
+
+            z = json.dumps(data_list)
+
+            print("zzzzzzzz type", type(z))
+            print(z)
+            res['message'] = "Showing data."
+            res['data'] = z
+            res['success'] = True
+            return HttpResponse(z)
+
         except Exception as e:
-            print(e)
+            print(res, e)
 
-        data_list = []
-        for i in note_data:
-            data_list.append(i)
-        print(type(data_list))
-        z = json.dumps(data_list)
-        print("zzzzzzzz type", type(z))
-        print(z)
 
-        resz = {
-            "message": "showing data",
-            #"data": {z},
-            "success": True
+class UpdateNote(APIView):
+    serializer_class = NoteSerializer
+
+    def put(self, request, pk):
+
+        """API for update the notes"""
+
+        res = {
+            'message': 'Something bad happened',
+            'data': {},
+            'success': False
         }
 
-        return HttpResponse(z)
+        uid = request.META['HTTP_AUTHORIZATION']
+        print(type(uid))
+        print("uid -------", uid)
+        userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
+        uid = userdata['user_id']
 
+        try:
+            note = Note.objects.get(pk=pk)
+        except Exception as e:
+            print(e)
+            return JsonResponse(res)
+
+        serializer = NoteSerializer(note, data=request.data)
+        if serializer.is_valid():
+            serializer.save(user_id=uid)
+            res = {
+                'message': 'Updated Successfully',
+                'data': serializer.data,
+                'success': True
+            }
+
+            return Response(res['data'])
+        return Response(res)

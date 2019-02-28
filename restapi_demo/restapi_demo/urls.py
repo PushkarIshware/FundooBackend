@@ -31,6 +31,9 @@ urlpatterns = [
     # ShowNotes
     path('api/shownotes', views.ShowNotes.as_view(), name='ShowNotes'),
 
+    # UpdateNote
+    path('api/updatenote/<int:pk>', views.UpdateNote.as_view(), name='UpdateNote'),
+
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),
