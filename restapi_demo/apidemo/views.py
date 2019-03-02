@@ -3,7 +3,8 @@ from django.shortcuts import render
 from django.utils.encoding import force_bytes, force_text
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.template.loader import render_to_string
-from rest_framework import generics
+from rest_framework import generics, HTTP_HEADER_ENCODING
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -247,95 +248,14 @@ class ShowNotes(View):
             print(res, e)
 
 
-# class UpdateNote(APIView):
-#     serializer_class = NoteSerializer
-#
-#     # def put(self, request, pk):
-#     def post(self, request, pk):
-#
-#         print("inside POST method")
-#         """API for update the notes"""
-#
-#         res = {
-#             'message': 'Something bad happened',
-#             'data': {},
-#             'success': False
-#         }
-#
-#         uid = request.META['HTTP_AUTHORIZATION']
-#         print(type(uid))
-#         print("uid -------", uid)
-#         userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
-#         uid = userdata['user_id']
-#
-#         try:
-#             note = Note.objects.get(pk=pk)
-#             print("noteeeeeee id", note.id)
-#         except Exception as e:
-#             print(e)
-#             return JsonResponse(res)
-#
-#         # serializer = NoteSerializer(note.id, data=request.data)
-#         serializer = NoteSerializer(note, data=request.data)
-#         if serializer.is_valid():
-#             # serializer.save(user_id=uid)
-#             serializer.save()
-#             res = {
-#                 'message': 'Updated Successfully',
-#                 'data': serializer.data,
-#                 'success': True
-#             }
-#             return HttpResponse(res['data'])
-#             #return Response(res['data'])
-#         #return Response(res['message'])
-#         return HttpResponse(res)
-
-# def UpdateNote(request, pk):
-#     res = {
-#         'message': 'ID not found',
-#         'data': {},
-#         'success': False
-#     }
-#     print(request.body)
-#     #
-#     # try:
-#     #     print("inside try.............")
-#     #
-#     #     note = Note.objects.get(id=pk)
-#     #
-#     #     note_id = note.id
-#     #     print('note id ', note_id)
-#     #     title = request.POST.get('id')
-#     #     description = request.POST.get('description')
-#     #
-#     #     print("title and discription", title, "    ", description)
-#     #
-#     #     # ctime = request.POST.get('ctime')
-#     #     # remainder = request.POST.get('remainder')
-#     #     # colla = request.POST.get('colla')
-#     #
-#     #     # note.title = title
-#     #     # note.description = description
-#     #
-#     #     # note.created_time=ctime
-#     #     # note.remainder=remainder
-#     #     # note.collaborate=colla
-#     #     # if serializer.is_valid():
-#     #
-#     #     #note.save()
-#     return HttpResponse(request.body)
-#
-#     # except Exception as e:
-#     #     print('exception', e)
-
 
 
 class UpdateNote(UpdateAPIView):
-
-    """Add Notes API"""
+    """Update Notes API"""
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
+
     def post(self, request, *args, **kwargs):
         try:
             res = {
@@ -346,10 +266,9 @@ class UpdateNote(UpdateAPIView):
 
             print(queryset)
 
-            #
-            # header_token = request.META['HTTP_AUTHORIZATION']
-            # userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
-            # uid = userdata['user_id']
+            header_token = request.META['HTTP_AUTHORIZATION']
+            userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
+            uid = userdata['user_id']
 
             item = Note.objects.get(pk=request.data['id'])
             print(item)
@@ -357,14 +276,87 @@ class UpdateNote(UpdateAPIView):
             title = request.data['title']
             des = request.data['description']
             color = request.data['color']
-            archive = request.data['archive']
+            archive = request.data['is_archived']
+            #pinned = request.data['is_pinned']
+            # deletenote = request.data['delete']
 
             item.title = title
             item.description = des
             item.color = color
             item.is_archived = archive
+            #item.is_pinned = pinned
+            # item.is_deleted = deletenote
             item.save()
 
+            res['message'] = "Update Successfully"
+            res['success'] = True
+
+            return Response(res)
+            #return HttpResponse(res)
+        except Exception as e:
+            print(res,e)
+
+
+class DeleteNote(UpdateAPIView):
+    """Update Notes API"""
+
+    serializer_class = NoteSerializer
+    queryset = Note.objects.all()
+
+    def post(self, request, *args, **kwargs):
+        try:
+            res = {
+                'message': 'Something bad happened',
+                'success': False
+            }
+            queryset = Note.objects.get(pk=request.data['id'])
+            item = Note.objects.get(pk=request.data['id'])
+            print(item)
+            print(item.id)
+            delete = request.data['is_deleted']
+            item.is_deleted = delete
+            item.save()
+            res['message'] = "Update Successfully"
+            res['success'] = True
             return Response(res)
         except Exception as e:
-            print(res)
+            print(res, e)
+
+
+class PinUnpinNote(UpdateAPIView):
+    """Update Notes API"""
+
+    serializer_class = NoteSerializer
+    queryset = Note.objects.all()
+
+    def post(self, request, *args, **kwargs):
+        try:
+            res = {
+                'message': 'Something bad happened',
+                'success': False
+            }
+            queryset = Note.objects.get(pk=request.data['id'])
+            item = Note.objects.get(pk=request.data['id'])
+            print(item)
+            print(item.id)
+            pin = request.data['is_pinned']
+            item.is_deleted = pin
+            item.save()
+            res['message'] = "Update Successfully"
+            res['success'] = True
+            return Response(res)
+        except Exception as e:
+            print(res, e)
+
+
+# def login_required(f):
+#     def check_login_and_call(request, *args, **kwargs):
+#         authentication = request.META.get('HTTP_AUTHORIZATION', b'')
+#         if isinstance(authentication, str):
+#             authentication = authentication.encode(HTTP_HEADER_ENCODING)
+#         key = authentication.split()
+#         if not key or len(key) != 2:
+#             raise PermissionDenied('Authentication failed.')
+#         user, token = authenticate_credentials(key[1])
+#         return f(request, *args, **kwargs)
+#     return check_login_and_call

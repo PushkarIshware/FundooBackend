@@ -34,7 +34,12 @@ urlpatterns = [
     # UpdateNote
     path('api/updatenote/<int:pk>', views.UpdateNote.as_view(), name='UpdateNote'),
 
-
+    # DeleteNote
+    path('api/deletenote/<int:pk>', views.DeleteNote.as_view(), name='DeleteNote'),
+    
+    # PinUnpinNote
+    path('api/pinunpin/<int:pk>', views.PinUnpinNote.as_view(), name='PinUnpinNote'),
+    
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),
