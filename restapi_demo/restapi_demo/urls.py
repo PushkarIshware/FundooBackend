@@ -8,7 +8,6 @@ from django.contrib.auth.views import (
     PasswordResetDoneView,
     PasswordResetConfirmView,
     PasswordResetCompleteView,
-
 )
 
 
@@ -39,7 +38,10 @@ urlpatterns = [
     
     # PinUnpinNote
     path('api/pinunpin/<int:pk>', views.PinUnpinNote.as_view(), name='PinUnpinNote'),
-    
+
+    # Reminder
+    path('api/reminder', views.Reminder.as_view(), name='Reminder'),
+
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),

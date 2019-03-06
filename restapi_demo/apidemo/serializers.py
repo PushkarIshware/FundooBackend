@@ -19,7 +19,6 @@ class registrationSerializer(serializers.ModelSerializer):
         fields = ('username',
                   'email',
                   'password',
-                  'password2',
                   )
 
     def clean(self):

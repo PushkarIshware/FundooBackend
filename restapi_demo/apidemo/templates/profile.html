@@ -1,6 +1,6 @@
-<form method="post" enctype="multipart/form-data" action="{% url 'Profile' %}">
+<form method="post" enctype="multipart/form-data" action="{% url 'Profile' %}">{% csrf_token %}
     <label>Username</label>
-    <input type="text" id="username" name="username">
-    <input type="file" id="pic" name="pic" />
+    <!--<input type="text" id="username" name="username">-->
+    <input type="file" id="pic" name="picture" />
     <button type="submit">submit</button>
 </form>

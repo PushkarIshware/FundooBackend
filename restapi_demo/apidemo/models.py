@@ -10,7 +10,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 class Note(models.Model):
     title = models.CharField(max_length=150, default=None)
     description = models.TextField()
-    #created_time = models.DateTimeField(auto_now_add=True, null=True)
+    created_time = models.DateTimeField(auto_now_add=True, null=True)
     reminder = models.CharField(default=None, null=True, max_length=25)
     is_archived = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)

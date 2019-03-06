@@ -3,9 +3,11 @@ from django.shortcuts import render
 from django.utils.encoding import force_bytes, force_text
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.template.loader import render_to_string
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, HTTP_HEADER_ENCODING
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import CreateAPIView, UpdateAPIView
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -130,9 +132,7 @@ class RestLogin(CreateAPIView):
                     res['message'] = "Logged in Successfully"
                     res['data'] = {"token": token, "username": username, "user_id": user_id.id}
                     res['success'] = True
-                    # res['user_id'] = user_id.id
-                    # tok = Token.objects.get_or_create(user=user)
-                    # print("tok issssssssss------>", tok)
+
                     return Response(res)
                 else:
                     return Response(res)
@@ -143,27 +143,29 @@ class RestLogin(CreateAPIView):
             return Response(res)
 
 
+@csrf_exempt
 def UploadImg(request):
     if request.method == "POST":
-        # username = request.data['username']
-        username = request.POST.get('username')
-        photo = request.POST.get('pic')
-        print(photo)
-        # photo = request.data['photo']
-        # print(username, " ", photo)
-        # pic = Image.open(photo, 'r')
-        # photo.show()
-        img = request.FILES['pic']
-        image = Image.open(img, 'r')
-        # image.show()
-        #  path=image.file.path
-        # image.show()
-        s3 = boto3.client('s3')
-        username = str(username + ".jpeg")
+        # username = "demo123"
+        username = request.POST.get('name')
+        print("---------------------------------", username)
+        photo = request.FILES['profile']
 
-        # s3.Bucket('fundooapp').put_object(Body=request.FILES['pic'], Key=key)
-        s3.upload_fileobj(img, 'fundooapp', Key=username)
+        print(type(photo))
+        # img = request.FILES['pic']
+        image = Image.open(photo, 'r')
+        # image.show()
+
+        s3 = boto3.client('s3')
+        username = str(username) + ".jpeg"
+        # s3 = boto3.resource('s3')
+        # s3.Bucket('fundooapp').put_object(Body=image, Key=username)
+        # s3.upload_fileobj(image, 'fundooapp', Key=username)
+        # s3.put_object(Key=username, Body=image)
+        s3.upload_fileobj(photo, 'fundooapp', username)
+        print("file uploaded")
         return JsonResponse({"msg": "recieved at django"})
+
     else:
         return render(request, 'profile.html', {})
 
@@ -173,6 +175,7 @@ class AddNote(CreateAPIView):
 
     serializer_class = NoteSerializer
 
+    # @login_required
     def post(self, request, *args, **kwargs):
         try:
             res = {
@@ -228,7 +231,8 @@ class ShowNotes(View):
             'success': False
         }
         try:
-            note_data = Note.objects.filter(user_id=uid).values()
+            note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
+                                                                'user', 'color', 'is_pinned', 'is_deleted')
             print(type(note_data))
 
             data_list = []
@@ -246,8 +250,6 @@ class ShowNotes(View):
 
         except Exception as e:
             print(res, e)
-
-
 
 
 class UpdateNote(UpdateAPIView):
@@ -276,15 +278,17 @@ class UpdateNote(UpdateAPIView):
             title = request.data['title']
             des = request.data['description']
             color = request.data['color']
-            archive = request.data['is_archived']
-            #pinned = request.data['is_pinned']
+            remainder = request.data['reminder']
+            # archive = request.data['is_archived']
+            # pinned = request.data['is_pinned']
             # deletenote = request.data['delete']
 
             item.title = title
             item.description = des
             item.color = color
-            item.is_archived = archive
-            #item.is_pinned = pinned
+            item.reminder = remainder
+            # item.is_archived = archive
+            # item.is_pinned = pinned
             # item.is_deleted = deletenote
             item.save()
 
@@ -292,9 +296,9 @@ class UpdateNote(UpdateAPIView):
             res['success'] = True
 
             return Response(res)
-            #return HttpResponse(res)
+            # return HttpResponse(res)
         except Exception as e:
-            print(res,e)
+            print(res, e)
 
 
 class DeleteNote(UpdateAPIView):
@@ -360,3 +364,37 @@ class PinUnpinNote(UpdateAPIView):
 #         user, token = authenticate_credentials(key[1])
 #         return f(request, *args, **kwargs)
 #     return check_login_and_call
+
+class Reminder(View):
+    """Show notes API"""
+
+    def get(self, request):
+        global note_data
+
+        '''
+        print('-------',request.META['HTTP_AUTHORIZATION'])
+        uid=request.META['HTTP_AUTHORIZATION']
+        '''
+
+        uid = request.META['HTTP_AUTHORIZATION']
+        userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
+        uid = userdata['user_id']
+
+        res = {
+            'message': 'Something bad happened',
+            'data': {},
+            'success': False
+        }
+        try:
+
+            note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'reminder', )
+            rem_notes = []
+            for i in note_data:
+                if i['reminder']:
+                    rem_notes.append(i)
+                    # print("-------rem------", i)
+            print(rem_notes)
+            z = json.dumps(rem_notes)
+            return HttpResponse(z)
+        except Exception as e:
+            print(res, e)
