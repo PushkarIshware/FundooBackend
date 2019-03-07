@@ -11,6 +11,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .CustomDecorator import jwt, jwtAUTH
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
 from django.http import HttpResponse
@@ -26,6 +27,8 @@ from .serializers import registrationSerializer, LoginSerializer, NoteSerializer
 from .models import Note
 from django.views import View
 from .models import Note
+
+
 
 User = get_user_model()
 
@@ -96,9 +99,7 @@ from rest_framework.authtoken.models import Token
 
 # @require_POST
 class RestLogin(CreateAPIView):
-    """
-    Login API
-    """
+    """ Login API """
 
     serializer_class = LoginSerializer
 
@@ -157,7 +158,7 @@ def UploadImg(request):
         # image.show()
 
         s3 = boto3.client('s3')
-        username = str(username) + ".jpeg"
+        username = str(username) + ".png"
         # s3 = boto3.resource('s3')
         # s3.Bucket('fundooapp').put_object(Body=image, Key=username)
         # s3.upload_fileobj(image, 'fundooapp', Key=username)
@@ -176,6 +177,7 @@ class AddNote(CreateAPIView):
     serializer_class = NoteSerializer
 
     # @login_required
+    # @jwt_auth(uid)
     def post(self, request, *args, **kwargs):
         try:
             res = {
@@ -224,15 +226,19 @@ class ShowNotes(View):
         print("uid -s ---", uid)
         userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
         uid = userdata['user_id']
-
+        uname=userdata['username']
+        print("-------------from token------ ",userdata['username'])
         res = {
             'message': 'Something bad happened',
             'data': {},
             'success': False
         }
         try:
+                                            # user_id=uid
+            uID=User.objects.get(username=uname).pk
+            print("user id from username-------",uID)
             note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
-                                                                'user', 'color', 'is_pinned', 'is_deleted')
+                                                                'user', 'color', 'is_pinned', 'is_deleted','label')
             print(type(note_data))
 
             data_list = []
@@ -302,7 +308,7 @@ class UpdateNote(UpdateAPIView):
 
 
 class DeleteNote(UpdateAPIView):
-    """Update Notes API"""
+    """Delete Notes API"""
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
@@ -328,7 +334,7 @@ class DeleteNote(UpdateAPIView):
 
 
 class PinUnpinNote(UpdateAPIView):
-    """Update Notes API"""
+    """ PinUnpin Notes API """
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
@@ -366,7 +372,7 @@ class PinUnpinNote(UpdateAPIView):
 #     return check_login_and_call
 
 class Reminder(View):
-    """Show notes API"""
+    """Reminder notes API"""
 
     def get(self, request):
         global note_data
@@ -392,7 +398,6 @@ class Reminder(View):
             for i in note_data:
                 if i['reminder']:
                     rem_notes.append(i)
-                    # print("-------rem------", i)
             print(rem_notes)
             z = json.dumps(rem_notes)
             return HttpResponse(z)
