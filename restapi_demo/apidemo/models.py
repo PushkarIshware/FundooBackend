@@ -22,6 +22,14 @@ class Note(models.Model):
     collaborate = models.ManyToManyField(User, null=True, blank=True, related_name='collaborated_user')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owner', null=True, blank=True)
 
+    def __str__(self):
+        return self.title + " " + self.description
+
+
+class Label(models.Model):
+    label_name = models.CharField(max_length=50)
+    created_time = models.DateTimeField(auto_now_add=True, null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return self.title+" "+self.description
+        return self.label_name

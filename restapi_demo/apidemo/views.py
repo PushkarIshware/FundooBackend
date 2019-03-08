@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_text
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.template.loader import render_to_string
@@ -10,11 +11,9 @@ from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from .CustomDecorator import jwt, jwtAUTH
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
-from django.http import HttpResponse
+from django.http import HttpResponse, request
 from django.contrib.auth import get_user_model, authenticate, login
 import jwt
 import json
@@ -23,21 +22,30 @@ import re
 from django.http import JsonResponse
 from PIL import Image
 import boto3
-from .serializers import registrationSerializer, LoginSerializer, NoteSerializer
-from .models import Note
+from .serializers import registrationSerializer, LoginSerializer, NoteSerializer, LabelSerializer
 from django.views import View
 from .models import Note
 
-
-
 User = get_user_model()
 
-'''
-this is email activation method for checking given email is valid or not.
-'''
+
+def jwt_tok(request):
+    uid = request.META['HTTP_AUTHORIZATION']
+    print('from a header---------------------------', uid)
+    print("uid -s ---", uid)
+    userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
+    uname = userdata['username']
+    valid = User.objects.get(username=uname)
+    print(valid, "validation given tokennnnnnnnnnnnnnnnnnnnnnnn")
+    if valid:
+        return uname
+    else:
+        return "invalid entry"
 
 
 def activate(request, uidb64, token):
+    """ this is email activation method for checking given email is valid or not. """
+
     try:
         uid = force_text(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=uid)  # gets the username
@@ -57,9 +65,7 @@ def activate(request, uidb64, token):
 
 
 class RestRegistration(CreateAPIView):
-    """
-        Registration API
-    """
+    """ Registration API """
 
     serializer_class = registrationSerializer
 
@@ -121,9 +127,9 @@ class RestLogin(CreateAPIView):
 
             if user:
                 if user.is_active:
-                    login(request, user)
-                    user_id = request.user
-                    payload = {'username': username, 'password': password, "user_id": user_id.id}
+                    # login(request, user)
+                    # user_id = request.user
+                    payload = {'username': username, 'password': password}
                     # token = jwt.encode(payload, "secret_key", algorithm='HS256').decode('utf-8')
                     jwt_token = {
                         'token': jwt.encode(payload, "Cypher", algorithm='HS256').decode('utf-8')
@@ -131,7 +137,7 @@ class RestLogin(CreateAPIView):
                     print(jwt_token)
                     token = jwt_token['token']
                     res['message'] = "Logged in Successfully"
-                    res['data'] = {"token": token, "username": username, "user_id": user_id.id}
+                    res['data'] = {"token": token, "username": username}
                     res['success'] = True
 
                     return Response(res)
@@ -178,19 +184,21 @@ class AddNote(CreateAPIView):
 
     # @login_required
     # @jwt_auth(uid)
+
     def post(self, request, *args, **kwargs):
         try:
             res = {
                 'message': 'Something bad happened',
                 'success': False
             }
+            # header_token = request.META['HTTP_AUTHORIZATION']
+            # userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
+            # # uid = userdata['user_id']
+            # uname = userdata['username']
 
-            header_token = request.META['HTTP_AUTHORIZATION']
-            userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
-            uid = userdata['user_id']
+            uname = jwt_tok(request)
+            uid = User.objects.get(username=uname).pk
 
-            if uid is None:
-                print("uid is none please login....note adding failed")
             serializer = NoteSerializer(data=request.data)
 
             if request.data['title'] and request.data['description'] is None:
@@ -207,38 +215,34 @@ class AddNote(CreateAPIView):
             print(res, e)
 
 
-# from django.core.serializers import serialize
-
-
 class ShowNotes(View):
     """Show notes API"""
 
     def get(self, request):
         global note_data
 
-        '''
-        print('-------',request.META['HTTP_AUTHORIZATION'])
-        uid=request.META['HTTP_AUTHORIZATION']
-        '''
+        # uid = request.META['HTTP_AUTHORIZATION']
+        # print('from a header---------------------------', uid)
+        # print("uid -s ---", uid)
+        # userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
+        # # uid = userdata['user_id']
+        # uname = userdata['username']
+        # print("-------------from token------ ", userdata['username'])
 
-        uid = request.META['HTTP_AUTHORIZATION']
-        print(type(uid))
-        print("uid -s ---", uid)
-        userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
-        uid = userdata['user_id']
-        uname=userdata['username']
-        print("-------------from token------ ",userdata['username'])
+        uname = jwt_tok(request)
+        # print(uname,"------------------------------------")
+
         res = {
             'message': 'Something bad happened',
             'data': {},
             'success': False
         }
         try:
-                                            # user_id=uid
-            uID=User.objects.get(username=uname).pk
-            print("user id from username-------",uID)
+            # user_id=uid
+            uid = User.objects.get(username=uname).pk
+            print("user id from username-------", uid)
             note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
-                                                                'user', 'color', 'is_pinned', 'is_deleted','label')
+                                                                'user', 'color', 'is_pinned', 'is_deleted', 'label')
             print(type(note_data))
 
             data_list = []
@@ -271,12 +275,9 @@ class UpdateNote(UpdateAPIView):
                 'success': False
             }
             queryset = Note.objects.get(pk=request.data['id'])
-
-            print(queryset)
-
             header_token = request.META['HTTP_AUTHORIZATION']
             userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
-            uid = userdata['user_id']
+            uname = userdata['username']
 
             item = Note.objects.get(pk=request.data['id'])
             print(item)
@@ -285,17 +286,12 @@ class UpdateNote(UpdateAPIView):
             des = request.data['description']
             color = request.data['color']
             remainder = request.data['reminder']
-            # archive = request.data['is_archived']
-            # pinned = request.data['is_pinned']
-            # deletenote = request.data['delete']
 
             item.title = title
             item.description = des
             item.color = color
             item.reminder = remainder
-            # item.is_archived = archive
-            # item.is_pinned = pinned
-            # item.is_deleted = deletenote
+
             item.save()
 
             res['message'] = "Update Successfully"
@@ -345,12 +341,11 @@ class PinUnpinNote(UpdateAPIView):
                 'message': 'Something bad happened',
                 'success': False
             }
-            queryset = Note.objects.get(pk=request.data['id'])
             item = Note.objects.get(pk=request.data['id'])
             print(item)
             print(item.id)
             pin = request.data['is_pinned']
-            item.is_deleted = pin
+            item.is_pinned = pin
             item.save()
             res['message'] = "Update Successfully"
             res['success'] = True
@@ -359,40 +354,23 @@ class PinUnpinNote(UpdateAPIView):
             print(res, e)
 
 
-# def login_required(f):
-#     def check_login_and_call(request, *args, **kwargs):
-#         authentication = request.META.get('HTTP_AUTHORIZATION', b'')
-#         if isinstance(authentication, str):
-#             authentication = authentication.encode(HTTP_HEADER_ENCODING)
-#         key = authentication.split()
-#         if not key or len(key) != 2:
-#             raise PermissionDenied('Authentication failed.')
-#         user, token = authenticate_credentials(key[1])
-#         return f(request, *args, **kwargs)
-#     return check_login_and_call
-
 class Reminder(View):
     """Reminder notes API"""
 
     def get(self, request):
         global note_data
 
-        '''
-        print('-------',request.META['HTTP_AUTHORIZATION'])
-        uid=request.META['HTTP_AUTHORIZATION']
-        '''
-
-        uid = request.META['HTTP_AUTHORIZATION']
-        userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
-        uid = userdata['user_id']
-
+        # uid = request.META['HTTP_AUTHORIZATION']
+        # userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
+        # uname = userdata['username']
+        uname = jwt_tok(request)
+        uid = uid = User.objects.get(username=uname).pk
         res = {
             'message': 'Something bad happened',
             'data': {},
             'success': False
         }
         try:
-
             note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'reminder', )
             rem_notes = []
             for i in note_data:
@@ -403,3 +381,72 @@ class Reminder(View):
             return HttpResponse(z)
         except Exception as e:
             print(res, e)
+
+
+class ArchiveNote(UpdateAPIView):
+    """ArchiveNotes Notes API"""
+
+    serializer_class = NoteSerializer
+    queryset = Note.objects.all()
+
+    def post(self, request, *args, **kwargs):
+        try:
+            res = {
+                'message': 'Something bad happened',
+                'success': False
+            }
+            queryset = Note.objects.get(pk=request.data['id'])
+            item = Note.objects.get(pk=request.data['id'])
+            print(item)
+            print(item.id)
+            archive = request.data['is_archived']
+            item.is_archived = archive
+            item.save()
+            res['message'] = "Update Successfully"
+            res['success'] = True
+            return Response(res)
+        except Exception as e:
+            print(res, e)
+
+
+class CreateLabel(CreateAPIView):
+    """Create Labels API"""
+
+    serializer_class = LabelSerializer
+
+    def post(self, request, *args, **kwargs):
+        print('inside post')
+        try:
+            res = {
+                'message': 'Something bad happened',
+                'success': False
+            }
+            # header_token = request.META['HTTP_AUTHORIZATION']
+            # userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
+            # # uid = userdata['user_id']
+            # uname = userdata['username']
+
+            uname = jwt_tok(request)
+            print(uname,"-***************************")
+            uid = User.objects.get(username=uname).pk
+            print(uid)
+            print(request.data)
+            # note_id = Note.objects.get(pk=request.data['id'])
+
+            serializer = LabelSerializer(data=request.data)
+            label = request.data['label_name']
+            # print(serializer)
+            if request.data['label_name'] is "":
+                raise Exception("label name required ")
+
+            if serializer.is_valid():
+                serializer.user_id = uid
+                serializer.save(user_id=uid)
+                res['message'] = "label added"
+                res['success'] = True
+                return JsonResponse(res)
+            return JsonResponse(res)
+        except Exception as e:
+            print(res, e)
+
+

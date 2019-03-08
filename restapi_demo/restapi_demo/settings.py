@@ -38,6 +38,7 @@ EMAIL_PORT = 587  # email port default
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
+'django.contrib.auth.backends.RemoteUserBackend',
 )
 
 # Application definition
@@ -84,6 +85,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.contrib.auth.middleware.RemoteUserMiddleware',
 ]
 
 ROOT_URLCONF = 'restapi_demo.urls'

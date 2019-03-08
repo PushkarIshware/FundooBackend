@@ -7,11 +7,12 @@ from apidemo import urls
 
 
 urlpatterns = [
+
     # apidemo App URLs
     path('', include('apidemo.urls')),
+
     # Admin
     path('admin/', admin.site.urls),
 
-    # Rest Registration
 
 ]

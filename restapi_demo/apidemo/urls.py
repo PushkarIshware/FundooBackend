@@ -41,11 +41,15 @@ urlpatterns = [
     # Reminder
     path('api/reminder', views.Reminder.as_view(), name='Reminder'),
 
+    # ArchiveNote
+    path('api/archive/<int:pk>', views.ArchiveNote.as_view(), name='ArchiveNote'),
+
+    # CreateLabel
+    path('api/createlabel', views.CreateLabel.as_view(), name="CreateLabel"),
+
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),
-
-
 
 
     # Reset Password
