@@ -47,6 +47,12 @@ urlpatterns = [
     # CreateLabel
     path('api/createlabel', views.CreateLabel.as_view(), name="CreateLabel"),
 
+    # Showlabels
+    path('api/showlabel', views.Showlabels.as_view(), name="Showlabels"),
+
+    # MapLabel
+    path('api/maplabel', views.MapLabel.as_view(), name="MapLabel"),
+
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),

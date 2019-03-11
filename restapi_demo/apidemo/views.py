@@ -1,4 +1,13 @@
-from django.contrib.auth.decorators import login_required
+"""
+******************************************************************************
+* Purpose:  APIs.
+*
+* @author:  Pushkar Ishware
+* @version: 3.7
+* @since:   11-3-2018
+*
+******************************************************************************
+"""
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_text
@@ -11,6 +20,7 @@ from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from .CustomDecorator import custom_login_required
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
 from django.http import HttpResponse, request
@@ -22,9 +32,9 @@ import re
 from django.http import JsonResponse
 from PIL import Image
 import boto3
-from .serializers import registrationSerializer, LoginSerializer, NoteSerializer, LabelSerializer
+from .serializers import registrationSerializer, LoginSerializer, NoteSerializer, LabelSerializer, MapLabelSerializer
 from django.views import View
-from .models import Note
+from .models import Note, Label, Map_Label
 
 User = get_user_model()
 
@@ -36,7 +46,7 @@ def jwt_tok(request):
     userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
     uname = userdata['username']
     valid = User.objects.get(username=uname)
-    print(valid, "validation given tokennnnnnnnnnnnnnnnnnnnnnnn")
+    print(valid, "validation given token")
     if valid:
         return uname
     else:
@@ -153,26 +163,18 @@ class RestLogin(CreateAPIView):
 @csrf_exempt
 def UploadImg(request):
     if request.method == "POST":
-        # username = "demo123"
         username = request.POST.get('name')
         print("---------------------------------", username)
         photo = request.FILES['profile']
-
         print(type(photo))
         # img = request.FILES['pic']
         image = Image.open(photo, 'r')
         # image.show()
-
         s3 = boto3.client('s3')
-        username = str(username) + ".png"
-        # s3 = boto3.resource('s3')
-        # s3.Bucket('fundooapp').put_object(Body=image, Key=username)
-        # s3.upload_fileobj(image, 'fundooapp', Key=username)
-        # s3.put_object(Key=username, Body=image)
-        s3.upload_fileobj(photo, 'fundooapp', username)
+        key = username
+        s3.upload_fileobj(photo, 'fundooapp', key)
         print("file uploaded")
         return JsonResponse({"msg": "recieved at django"})
-
     else:
         return render(request, 'profile.html', {})
 
@@ -182,27 +184,24 @@ class AddNote(CreateAPIView):
 
     serializer_class = NoteSerializer
 
-    # @login_required
-    # @jwt_auth(uid)
-
+    @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
+        uname = request.user_id
+        print(uname,"    from add notes")
         try:
             res = {
                 'message': 'Something bad happened',
                 'success': False
             }
-            # header_token = request.META['HTTP_AUTHORIZATION']
-            # userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
-            # # uid = userdata['user_id']
-            # uname = userdata['username']
-
-            uname = jwt_tok(request)
+            # uname = jwt_tok(request)
             uid = User.objects.get(username=uname).pk
-
+            print(uid)
             serializer = NoteSerializer(data=request.data)
 
             if request.data['title'] and request.data['description'] is None:
                 raise Exception("title and description required ")
+
+            print("title-------", request.data['title'])
 
             if serializer.is_valid():
                 # serializer.user_id = uid
@@ -217,21 +216,11 @@ class AddNote(CreateAPIView):
 
 class ShowNotes(View):
     """Show notes API"""
-
+    @method_decorator(custom_login_required)
     def get(self, request):
+        uname = request.user_id
+        print("------------------authUSER-----",uname)
         global note_data
-
-        # uid = request.META['HTTP_AUTHORIZATION']
-        # print('from a header---------------------------', uid)
-        # print("uid -s ---", uid)
-        # userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
-        # # uid = userdata['user_id']
-        # uname = userdata['username']
-        # print("-------------from token------ ", userdata['username'])
-
-        uname = jwt_tok(request)
-        # print(uname,"------------------------------------")
-
         res = {
             'message': 'Something bad happened',
             'data': {},
@@ -267,7 +256,7 @@ class UpdateNote(UpdateAPIView):
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
-
+    @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         try:
             res = {
@@ -275,10 +264,6 @@ class UpdateNote(UpdateAPIView):
                 'success': False
             }
             queryset = Note.objects.get(pk=request.data['id'])
-            header_token = request.META['HTTP_AUTHORIZATION']
-            userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
-            uname = userdata['username']
-
             item = Note.objects.get(pk=request.data['id'])
             print(item)
             print(item.id)
@@ -308,21 +293,22 @@ class DeleteNote(UpdateAPIView):
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
-
+    @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
+        uname = request.user_id
+        print(uname)
         try:
             res = {
                 'message': 'Something bad happened',
                 'success': False
             }
-            queryset = Note.objects.get(pk=request.data['id'])
             item = Note.objects.get(pk=request.data['id'])
             print(item)
             print(item.id)
             delete = request.data['is_deleted']
             item.is_deleted = delete
             item.save()
-            res['message'] = "Update Successfully"
+            res['message'] = "Delete Successfully"
             res['success'] = True
             return Response(res)
         except Exception as e:
@@ -334,7 +320,7 @@ class PinUnpinNote(UpdateAPIView):
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
-
+    @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         try:
             res = {
@@ -347,23 +333,23 @@ class PinUnpinNote(UpdateAPIView):
             pin = request.data['is_pinned']
             item.is_pinned = pin
             item.save()
-            res['message'] = "Update Successfully"
+            res['message'] = "Pinunpin Successfully"
             res['success'] = True
             return Response(res)
         except Exception as e:
             print(res, e)
 
 
+
+
 class Reminder(View):
     """Reminder notes API"""
-
+    @method_decorator(custom_login_required)
     def get(self, request):
-        global note_data
 
-        # uid = request.META['HTTP_AUTHORIZATION']
-        # userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
-        # uname = userdata['username']
-        uname = jwt_tok(request)
+        global note_data
+        uname = request.user_id
+
         uid = uid = User.objects.get(username=uname).pk
         res = {
             'message': 'Something bad happened',
@@ -388,7 +374,7 @@ class ArchiveNote(UpdateAPIView):
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
-
+    @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         try:
             res = {
@@ -402,7 +388,7 @@ class ArchiveNote(UpdateAPIView):
             archive = request.data['is_archived']
             item.is_archived = archive
             item.save()
-            res['message'] = "Update Successfully"
+            res['message'] = "Archived Successfully"
             res['success'] = True
             return Response(res)
         except Exception as e:
@@ -414,19 +400,15 @@ class CreateLabel(CreateAPIView):
 
     serializer_class = LabelSerializer
 
+    @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
+        uname = request.user_id
         print('inside post')
         try:
             res = {
                 'message': 'Something bad happened',
                 'success': False
             }
-            # header_token = request.META['HTTP_AUTHORIZATION']
-            # userdata = jwt.decode(header_token, "Cypher", algorithm='HS256')
-            # # uid = userdata['user_id']
-            # uname = userdata['username']
-
-            uname = jwt_tok(request)
             print(uname,"-***************************")
             uid = User.objects.get(username=uname).pk
             print(uid)
@@ -449,4 +431,74 @@ class CreateLabel(CreateAPIView):
         except Exception as e:
             print(res, e)
 
+
+class Showlabels(View):
+    """Show labels API"""
+
+    @method_decorator(custom_login_required)
+    def get(self, request):
+        global note_data
+        uname = jwt_tok(request)
+        uname = jwt_tok(request)
+        # print(uname,"------------------------------------")
+
+        res = {
+            'message': 'Something bad happened',
+            'data': {},
+            'success': False
+        }
+        try:
+            # user_id=uid
+            uid = User.objects.get(username=uname).pk
+            print("user id from username-------", uid)
+            note_data = Label.objects.filter(user_id=uid).values('id','label_name', 'user')
+            print(type(note_data))
+
+            data_list = []
+            for i in note_data:
+                data_list.append(i)
+            print(data_list)
+            z = json.dumps(data_list)
+
+            print("zzzzzzzz type", type(z))
+            print(z)
+            res['message'] = "Showing data."
+            res['data'] = z
+            res['success'] = True
+            return HttpResponse(z)
+
+        except Exception as e:
+            print(res, e)
+
+
+class MapLabel(CreateAPIView):
+    serializer_class = MapLabelSerializer
+
+    @method_decorator(custom_login_required)
+    def post(self, request, *args, **kwargs):
+        uname = request.user_id
+        print('inside post')
+        res = {
+            'message': 'Something bad happened',
+            'data': {},
+            'success': False
+        }
+        if User.objects.get(username=uname).pk:
+            uid = User.objects.get(username=uname).pk
+            print(uid)
+            card = Note.objects.get(pk=request.data['id'])
+            cid=card.id
+            print(card.id)
+            label = Label.objects.get(pk=request.data['label_name'])
+            print(label.id)
+            lid=label.id
+            mapping = Map_Label.objects.create(label_id=Label.objects.get(id=lid),
+                                           user=User.objects.get(id=uid),
+                                           note=Note.objects.get(id=cid))
+            print(mapping)
+            res['message']='label added'
+            res['success']=True
+            res['data']={"label_id":lid}
+            print(res)
+            return Response(res)
 

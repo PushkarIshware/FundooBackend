@@ -33,3 +33,13 @@ class Label(models.Model):
 
     def __str__(self):
         return self.label_name
+
+
+class Map_Label(models.Model):
+    label_id = models.ForeignKey(Label,null=True,blank=True,on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE,null=True, blank=True)
+    created_time = models.DateTimeField(auto_now_add=True, null=True)
+    note = models.ForeignKey(Note,on_delete=models.CASCADE,null=True, blank=True)
+
+    def __str__(self):
+         return str(self.note)

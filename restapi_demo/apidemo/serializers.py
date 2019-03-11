@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 import re
-from .models import Note, Label
+from .models import Note, Label, Map_Label
 
 User = get_user_model()
 
@@ -45,10 +45,17 @@ class NoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Note
-        fields = ('title', 'description', 'is_archived', 'reminder', 'user', 'color', 'is_pinned', 'is_deleted', 'label')
+        fields = (
+        'title', 'description', 'is_archived', 'reminder', 'user', 'color', 'is_pinned', 'is_deleted', 'label')
 
 
 class LabelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Label
-        fields = ('label_name', 'user')
+        fields = ('id','label_name', 'user')
+
+
+class MapLabelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Map_Label
+        fields = ('label_id', 'user', 'note')
