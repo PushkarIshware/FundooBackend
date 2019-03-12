@@ -9,12 +9,9 @@ https://docs.djangoproject.com/en/2.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.1/ref/settings/
 """
-
 import os
-
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
@@ -28,17 +25,27 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 ALLOWED_HOSTS = ['127.0.0.1']
-#Email verification
-EMAIL_USE_TLS = True            # Email Tool
-EMAIL_HOST = 'smtp.gmail.com'   # gmail use SMTP protocol
-EMAIL_HOST_USER = 'fundooapp.nikhillad@gmail.com'   # from email id
-EMAIL_HOST_PASSWORD = 'nikhil007'  # password
+
+
+from dotenv import load_dotenv
+
+load_dotenv()
+from pathlib import Path
+
+env_path = Path('.') / '.env'
+load_dotenv(dotenv_path=env_path)
+
+# Email verification
+EMAIL_USE_TLS = True  # Email Tool
+EMAIL_HOST = os.getenv("EMAIL_HOST")  # gmail use SMTP protocol
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")  # from email id
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")  # password
 EMAIL_PORT = 587  # email port default
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
-'django.contrib.auth.backends.RemoteUserBackend',
+    'django.contrib.auth.backends.RemoteUserBackend',
 )
 
 # Application definition
@@ -62,19 +69,8 @@ INSTALLED_APPS = [
     'django.contrib.sites',
 ]
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_PERMISSION_CLASSES': (
-#         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
-#     ),
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
-#         'rest_framework.authentication.SessionAuthentication',
-#         'rest_framework.authentication.BasicAuthentication',
-#     ),
-# }
-
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-#django.core.mail.backends.smtp.EmailBackend
+# django.core.mail.backends.smtp.EmailBackend
 SITE_ID = 1
 
 MIDDLEWARE = [
@@ -108,7 +104,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'restapi_demo.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
@@ -122,7 +117,6 @@ DATABASES = {
         'PORT': '',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
@@ -142,7 +136,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
 
@@ -156,7 +149,6 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
@@ -167,4 +159,3 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 LOGOUT_REDIRECT_URL = 'log_me/'
-

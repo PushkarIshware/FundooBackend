@@ -8,6 +8,7 @@
 *
 ******************************************************************************
 """
+import os
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_text
@@ -32,9 +33,14 @@ import re
 from django.http import JsonResponse
 from PIL import Image
 import boto3
-from .serializers import registrationSerializer, LoginSerializer, NoteSerializer, LabelSerializer, MapLabelSerializer
+from .serializers import registrationSerializer
+    # , LoginSerializer, NoteSerializer, LabelSerializer, MapLabelSerializer
 from django.views import View
 from .models import Note, Label, Map_Label
+from .LoginSerializer import LoginSerializer
+from .NoteSerializer import NoteSerializer
+from .LabelSerializer import LabelSerializer
+from .MapLabelSerializer import MapLabelSerializer
 
 User = get_user_model()
 
@@ -74,6 +80,9 @@ def activate(request, uidb64, token):
         return HttpResponse('Something bad happened')
 
 
+from dotenv import load_dotenv
+
+
 class RestRegistration(CreateAPIView):
     """ Registration API """
 
@@ -95,7 +104,7 @@ class RestRegistration(CreateAPIView):
             message = render_to_string('acc_active_email.html', {
                 'user': user,
                 'domain': 'http://127.0.0.1:8000',
-                # 'domain': 'http://127.0.0.1:4200',
+                'domain1': os.getenv("DOMAIN"),
                 'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
                 'token': account_activation_token.make_token(user),
             })
@@ -187,7 +196,7 @@ class AddNote(CreateAPIView):
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         uname = request.user_id
-        print(uname,"    from add notes")
+        print(uname, "    from add notes")
         try:
             res = {
                 'message': 'Something bad happened',
@@ -216,14 +225,16 @@ class AddNote(CreateAPIView):
 
 class ShowNotes(View):
     """Show notes API"""
+
     @method_decorator(custom_login_required)
     def get(self, request):
         uname = request.user_id
-        print("------------------authUSER-----",uname)
+        print("------------------authUSER-----", uname)
         global note_data
         res = {
             'message': 'Something bad happened',
             'data': {},
+            'label': {},
             'success': False
         }
         try:
@@ -232,20 +243,26 @@ class ShowNotes(View):
             print("user id from username-------", uid)
             note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
                                                                 'user', 'color', 'is_pinned', 'is_deleted', 'label')
-            print(type(note_data))
+
+            map_labels = Map_Label.objects.all().values('label_id', 'note')
+            map_list = []
+            for m in map_labels:
+                map_list.append(m)
+            map_json = json.dumps(map_list)
+            print("mmmmmmmmmmm", map_list)
 
             data_list = []
             for i in note_data:
                 data_list.append(i)
-            print(data_list)
-            z = json.dumps(data_list)
+            note_json = json.dumps(data_list)
 
-            print("zzzzzzzz type", type(z))
-            print(z)
             res['message'] = "Showing data."
-            res['data'] = z
+            res['data'] = note_json
+
             res['success'] = True
-            return HttpResponse(z)
+            print(res)
+            j = json.dumps(res)
+            return HttpResponse(note_json)
 
         except Exception as e:
             print(res, e)
@@ -256,6 +273,7 @@ class UpdateNote(UpdateAPIView):
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
+
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         try:
@@ -293,6 +311,7 @@ class DeleteNote(UpdateAPIView):
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
+
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         uname = request.user_id
@@ -320,6 +339,7 @@ class PinUnpinNote(UpdateAPIView):
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
+
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         try:
@@ -340,10 +360,9 @@ class PinUnpinNote(UpdateAPIView):
             print(res, e)
 
 
-
-
 class Reminder(View):
     """Reminder notes API"""
+
     @method_decorator(custom_login_required)
     def get(self, request):
 
@@ -374,6 +393,7 @@ class ArchiveNote(UpdateAPIView):
 
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
+
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         try:
@@ -409,7 +429,7 @@ class CreateLabel(CreateAPIView):
                 'message': 'Something bad happened',
                 'success': False
             }
-            print(uname,"-***************************")
+            print(uname, "-***************************")
             uid = User.objects.get(username=uname).pk
             print(uid)
             print(request.data)
@@ -451,7 +471,7 @@ class Showlabels(View):
             # user_id=uid
             uid = User.objects.get(username=uname).pk
             print("user id from username-------", uid)
-            note_data = Label.objects.filter(user_id=uid).values('id','label_name', 'user')
+            note_data = Label.objects.filter(user_id=uid).values('id', 'label_name', 'user')
             print(type(note_data))
 
             data_list = []
@@ -473,6 +493,7 @@ class Showlabels(View):
 
 class MapLabel(CreateAPIView):
     serializer_class = MapLabelSerializer
+    serializer_class1 = NoteSerializer
 
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
@@ -485,20 +506,22 @@ class MapLabel(CreateAPIView):
         }
         if User.objects.get(username=uname).pk:
             uid = User.objects.get(username=uname).pk
-            print(uid)
             card = Note.objects.get(pk=request.data['id'])
-            cid=card.id
-            print(card.id)
-            label = Label.objects.get(pk=request.data['label_name'])
-            print(label.id)
-            lid=label.id
+            cid = card.id
+            label = Label.objects.get(pk=request.data['label_id'])
+            lid = label.id
             mapping = Map_Label.objects.create(label_id=Label.objects.get(id=lid),
-                                           user=User.objects.get(id=uid),
-                                           note=Note.objects.get(id=cid))
-            print(mapping)
-            res['message']='label added'
-            res['success']=True
-            res['data']={"label_id":lid}
-            print(res)
-            return Response(res)
+                                               user=User.objects.get(id=uid),
+                                               note=Note.objects.get(id=cid))
 
+            queryset = Note.objects.get(pk=request.data['id'])
+            item = Note.objects.get(pk=request.data['id'])
+            l = request.data['label_name']
+            print(l, '------------------------label re')
+            item.label = l
+            item.save()
+
+            res['message'] = 'label added'
+            res['success'] = True
+            res['data'] = {"label_id": lid}
+            return Response(res)
