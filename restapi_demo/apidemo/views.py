@@ -262,6 +262,8 @@ class ShowNotes(View):
             res['success'] = True
             print(res)
             j = json.dumps(res)
+            data1={"data": note_json, "label":map_json}
+            # return HttpResponse(data1['label'])
             return HttpResponse(note_json)
 
         except Exception as e:
@@ -517,6 +519,10 @@ class MapLabel(CreateAPIView):
             queryset = Note.objects.get(pk=request.data['id'])
             item = Note.objects.get(pk=request.data['id'])
             l = request.data['label_name']
+
+            label_list=[]
+            label_list.append(l)
+
             print(l, '------------------------label re')
             item.label = l
             item.save()
@@ -525,3 +531,6 @@ class MapLabel(CreateAPIView):
             res['success'] = True
             res['data'] = {"label_id": lid}
             return Response(res)
+
+
+

@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from django.db import models
@@ -21,7 +22,7 @@ class Note(models.Model):
     label = models.CharField(max_length=50, default=None, null=True)
     collaborate = models.ManyToManyField(User, null=True, blank=True, related_name='collaborated_user')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owner', null=True, blank=True)
-    
+
     def __str__(self):
         return self.title + " " + self.description
 
@@ -36,10 +37,10 @@ class Label(models.Model):
 
 
 class Map_Label(models.Model):
-    label_id = models.ForeignKey(Label,null=True,blank=True,on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE,null=True, blank=True)
+    label_id = models.ForeignKey(Label, null=True, blank=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     created_time = models.DateTimeField(auto_now_add=True, null=True)
-    note = models.ForeignKey(Note,on_delete=models.CASCADE,null=True, blank=True)
+    note = models.ForeignKey(Note, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-         return str(self.note)
+        return str(self.note)
