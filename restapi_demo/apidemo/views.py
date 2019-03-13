@@ -17,7 +17,7 @@ from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, HTTP_HEADER_ENCODING
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.generics import CreateAPIView, UpdateAPIView
+from rest_framework.generics import CreateAPIView, UpdateAPIView, DestroyAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -34,7 +34,7 @@ from django.http import JsonResponse
 from PIL import Image
 import boto3
 from .serializers import registrationSerializer
-    # , LoginSerializer, NoteSerializer, LabelSerializer, MapLabelSerializer
+# , LoginSerializer, NoteSerializer, LabelSerializer, MapLabelSerializer
 from django.views import View
 from .models import Note, Label, Map_Label
 from .LoginSerializer import LoginSerializer
@@ -47,6 +47,7 @@ User = get_user_model()
 
 def jwt_tok(request):
     uid = request.META['HTTP_AUTHORIZATION']
+
     print('from a header---------------------------', uid)
     print("uid -s ---", uid)
     userdata = jwt.decode(uid, "Cypher", algorithm='HS256')
@@ -262,7 +263,7 @@ class ShowNotes(View):
             res['success'] = True
             print(res)
             j = json.dumps(res)
-            data1={"data": note_json, "label":map_json}
+            data1 = {"data": note_json, "label": map_json}
             # return HttpResponse(data1['label'])
             return HttpResponse(note_json)
 
@@ -495,7 +496,7 @@ class Showlabels(View):
 
 class MapLabel(CreateAPIView):
     serializer_class = MapLabelSerializer
-    serializer_class1 = NoteSerializer
+    serializer_class1 = NoteSerializer  # adding labels to Note Models
 
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
@@ -511,21 +512,25 @@ class MapLabel(CreateAPIView):
             card = Note.objects.get(pk=request.data['id'])
             cid = card.id
             label = Label.objects.get(pk=request.data['label_id'])
+            print("from map label -------", label)
             lid = label.id
             mapping = Map_Label.objects.create(label_id=Label.objects.get(id=lid),
                                                user=User.objects.get(id=uid),
-                                               note=Note.objects.get(id=cid))
+                                               note=Note.objects.get(id=cid),
+                                               map_label_name=Label.objects.get(label_name=label))
 
-            queryset = Note.objects.get(pk=request.data['id'])
-            item = Note.objects.get(pk=request.data['id'])
-            l = request.data['label_name']
+            # DIRECTLY ADDING LABELS TO NOTE(LABEL FIELD)
 
-            label_list=[]
-            label_list.append(l)
-
-            print(l, '------------------------label re')
-            item.label = l
-            item.save()
+            # queryset = Note.objects.get(pk=request.data['id'])
+            # item = Note.objects.get(pk=request.data['id'])
+            # l = request.data['label_name']
+            #
+            # label_list=[]
+            # label_list.append(l)
+            #
+            # print(l, '------------------------label re')
+            # item.label = l
+            # item.save()
 
             res['message'] = 'label added'
             res['success'] = True
@@ -533,4 +538,49 @@ class MapLabel(CreateAPIView):
             return Response(res)
 
 
+class GetMapLabels(View):
+    @method_decorator(custom_login_required)
+    def get(self, request):
+        uname = request.user_id
+        # uname = jwt_tok(request)
+        # uname = "pushkar111"
+        res = {
+            'message': 'Something bad happened',
+            'data': {},
+            'success': False
+        }
+        try:
+            uid = User.objects.get(username=uname).pk
+            print("user id from username-------", uid)
+            note_data = Map_Label.objects.filter(user_id=uid).values('id','user_id',
+                                                                     'map_label_name',
+                                                                     'note_id')
+            data_list = []
+            for i in note_data:
+                data_list.append(i)
+            print(data_list)
+            z = json.dumps(data_list)
 
+            print("zzzzzzzz type", type(z))
+            print(z)
+            res['message'] = "Showing data."
+            res['data'] = z
+            res['success'] = True
+            return HttpResponse(z)
+        except Exception as e:
+            print(res, e)
+
+
+class RemoveMapLabel(DestroyAPIView):
+
+    @method_decorator(custom_login_required)
+    def delete(self, request,pk):
+        print("inside Delete")
+
+        res = {
+            'message': 'label removed successfully',
+            'data': {},
+            'success': True
+        }
+        Map_Label.objects.get(pk=pk).delete()
+        return Response(res)

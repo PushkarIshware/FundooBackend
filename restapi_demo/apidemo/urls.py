@@ -53,6 +53,12 @@ urlpatterns = [
     # MapLabel
     path('api/maplabel', views.MapLabel.as_view(), name="MapLabel"),
 
+    # GetMapLabels
+    path('api/getmaplabels', views.GetMapLabels.as_view(), name="GetMapLabels"),
+
+    # RemoveMapLabel/card_id/map_label_id
+    path('api/removemaplabel/<int:pk>', views.RemoveMapLabel.as_view(), name="RemoveMapLabel"),
+
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),

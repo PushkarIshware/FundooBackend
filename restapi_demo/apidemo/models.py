@@ -41,6 +41,7 @@ class Map_Label(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     created_time = models.DateTimeField(auto_now_add=True, null=True)
     note = models.ForeignKey(Note, on_delete=models.CASCADE, null=True, blank=True)
+    map_label_name = models.CharField(max_length=50)
 
     def __str__(self):
         return str(self.note)
