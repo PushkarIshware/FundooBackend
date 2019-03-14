@@ -61,6 +61,9 @@ urlpatterns = [
     # Showlabels
     path('api/showlabel', views.Showlabels.as_view(), name="Showlabels"),
 
+    # DeleteLabel
+    path('api/deletelabel/<int:pk>', views.DeleteLabel.as_view(), name="DeleteLabel"),
+
     # MapLabel
     path('api/maplabel', views.MapLabel.as_view(), name="MapLabel"),
 

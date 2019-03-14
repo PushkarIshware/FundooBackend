@@ -24,6 +24,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .ModelServices import GetNotes
 from .services import redis_info
 from .CustomDecorator import custom_login_required
 from .tokens import account_activation_token
@@ -156,15 +157,15 @@ class RestLogin(CreateAPIView):
                     payload = {'username': username, 'password': password}
                     # token = jwt.encode(payload, "secret_key", algorithm='HS256').decode('utf-8')
                     jwt_token = {
-                        'token': jwt.encode(payload, "Cypher", algorithm='HS256').decode('utf-8')
+                        'token': jwt.encode(payload, os.getenv("SIGNATURE"), algorithm='HS256').decode('utf-8')
                     }
                     print(jwt_token)
                     token = jwt_token['token']
                     res['message'] = "Logged in Successfully"
                     res['data'] = {"token": token}
                     res['success'] = True
-                    redis_token=redis_info.token_set(self, 'token', res['data'])
-                    print("redis-----",redis_token)
+                    redis_token = redis_info.token_set('token', res['data'])
+                    print("redis-----", redis_token)
                     return Response(res)
                 else:
                     return Response(res)
@@ -183,20 +184,19 @@ def UploadImg(request):
         photo = request.FILES['profile']
         print(photo)
         pic_ext = photo.name
-        z=pic_ext.split('.')
+        z = pic_ext.split('.')
         print(z[1])
-
 
         # img = request.FILES['pic']
         image = Image.open(photo, 'r')
-        print(type(image),'----------------')
+        print(type(image), '----------------')
         print(isImageType(image))
         # image.show()
 
         s3 = boto3.client('s3')
         key = "pushkar111"
         print(key)
-        s3.upload_fileobj(photo, 'fundooapp',key)
+        s3.upload_fileobj(photo, 'fundooapp', key)
         print("file uploaded")
         return JsonResponse({"msg": "recieved at django"})
     else:
@@ -256,20 +256,14 @@ class ShowNotes(View):
             # user_id=uid
             uid = User.objects.get(username=uname).pk
             print("user id from username-------", uid)
-            note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
-                                                                'user', 'color', 'is_pinned', 'is_deleted', 'label')
+            # note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
+            #                                                     'user', 'color', 'is_pinned', 'is_deleted', 'label')
+            # data_list = []
+            # for i in note_data:
+            #     data_list.append(i)
+            # note_json = json.dumps(data_list)
 
-            map_labels = Map_Label.objects.all().values('label_id', 'note')
-            map_list = []
-            for m in map_labels:
-                map_list.append(m)
-            map_json = json.dumps(map_list)
-            print("mmmmmmmmmmm", map_list)
-
-            data_list = []
-            for i in note_data:
-                data_list.append(i)
-            note_json = json.dumps(data_list)
+            note_json = GetNotes(uid)
 
             res['message'] = "Showing data."
             res['data'] = note_json
@@ -277,7 +271,7 @@ class ShowNotes(View):
             res['success'] = True
             print(res)
             j = json.dumps(res)
-            data1 = {"data": note_json, "label": map_json}
+
             # return HttpResponse(data1['label'])
             return HttpResponse(note_json)
 
@@ -299,6 +293,7 @@ class UpdateNote(UpdateAPIView):
                 'success': False
             }
             queryset = Note.objects.get(pk=request.data['id'])
+
             item = Note.objects.get(pk=request.data['id'])
             print(item)
             print(item.id)
@@ -313,6 +308,7 @@ class UpdateNote(UpdateAPIView):
             item.reminder = remainder
 
             item.save()
+            # UpdateNote()
 
             res['message'] = "Update Successfully"
             res['success'] = True
@@ -508,7 +504,25 @@ class Showlabels(View):
             print(res, e)
 
 
+class DeleteLabel(DestroyAPIView):
+    """Delete labels API"""
+
+    @method_decorator(custom_login_required)
+    def delete(self, request, pk):
+        print("inside Delete")
+
+        res = {
+            'message': 'label Deleted',
+            'data': {},
+            'success': True
+        }
+        Label.objects.get(pk=pk).delete()
+        return Response(res)
+
+
 class MapLabel(CreateAPIView):
+    """Map labels API"""
+
     serializer_class = MapLabelSerializer
     serializer_class1 = NoteSerializer  # adding labels to Note Models
 
@@ -553,6 +567,8 @@ class MapLabel(CreateAPIView):
 
 
 class GetMapLabels(View):
+    """Show Map labels API"""
+
     @method_decorator(custom_login_required)
     def get(self, request):
         uname = request.user_id
@@ -566,7 +582,7 @@ class GetMapLabels(View):
         try:
             uid = User.objects.get(username=uname).pk
             print("user id from username-------", uid)
-            note_data = Map_Label.objects.filter(user_id=uid).values('id','user_id',
+            note_data = Map_Label.objects.filter(user_id=uid).values('id', 'user_id',
                                                                      'map_label_name',
                                                                      'note_id')
             data_list = []
@@ -586,6 +602,7 @@ class GetMapLabels(View):
 
 
 class RemoveMapLabel(DestroyAPIView):
+    """Remove labels API"""
 
     @method_decorator(custom_login_required)
     def delete(self, request, pk):

@@ -8,6 +8,7 @@
 *
 ******************************************************************************
 """
+import os
 
 import jwt
 from django.contrib.auth.models import User
@@ -19,8 +20,9 @@ def custom_login_required(function):
         print(request.META.get('HTTP_AUTHORIZATION'))
         token = request.META.get('HTTP_AUTHORIZATION')
         print("---------------------------------------", token)
-
-        token_decode = jwt.decode(token, "Cypher", algorithms=['HS256'])
+        # os.getenv("DOMAIN")
+        # token_decode = jwt.decode(token, "Cypher", algorithms=['HS256'])
+        token_decode = jwt.decode(token, os.getenv("SIGNATURE"), algorithms=['HS256'])
         uname = token_decode.get('username')
 
         print("---------------------uname------------------", uname)
