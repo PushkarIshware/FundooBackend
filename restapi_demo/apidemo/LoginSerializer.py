@@ -1,3 +1,14 @@
+"""
+******************************************************************************
+* Purpose:  Login Serializer.
+*
+* @author:  Pushkar Ishware
+* @version: 3.7
+* @since:   11-3-2018
+*
+******************************************************************************
+"""
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from django.contrib.auth.models import User

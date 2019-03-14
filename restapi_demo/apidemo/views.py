@@ -1,6 +1,6 @@
 """
 ******************************************************************************
-* Purpose:  APIs.
+* Purpose:  APIs (Register,Login,uploadImage,AddNote,DeleteNote,...).
 *
 * @author:  Pushkar Ishware
 * @version: 3.7
@@ -9,6 +9,8 @@
 ******************************************************************************
 """
 import os
+
+from PIL.Image import isImageType
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_text
@@ -21,6 +23,8 @@ from rest_framework.generics import CreateAPIView, UpdateAPIView, DestroyAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from .services import redis_info
 from .CustomDecorator import custom_login_required
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
@@ -157,9 +161,10 @@ class RestLogin(CreateAPIView):
                     print(jwt_token)
                     token = jwt_token['token']
                     res['message'] = "Logged in Successfully"
-                    res['data'] = {"token": token, "username": username}
+                    res['data'] = {"token": token}
                     res['success'] = True
-
+                    redis_token=redis_info.token_set(self, 'token', res['data'])
+                    print("redis-----",redis_token)
                     return Response(res)
                 else:
                     return Response(res)
@@ -173,16 +178,25 @@ class RestLogin(CreateAPIView):
 @csrf_exempt
 def UploadImg(request):
     if request.method == "POST":
-        username = request.POST.get('name')
-        print("---------------------------------", username)
+        # username = request.POST.get('name')
+        # print("---------------------------------", username)
         photo = request.FILES['profile']
-        print(type(photo))
+        print(photo)
+        pic_ext = photo.name
+        z=pic_ext.split('.')
+        print(z[1])
+
+
         # img = request.FILES['pic']
         image = Image.open(photo, 'r')
+        print(type(image),'----------------')
+        print(isImageType(image))
         # image.show()
+
         s3 = boto3.client('s3')
-        key = username
-        s3.upload_fileobj(photo, 'fundooapp', key)
+        key = "pushkar111"
+        print(key)
+        s3.upload_fileobj(photo, 'fundooapp',key)
         print("file uploaded")
         return JsonResponse({"msg": "recieved at django"})
     else:
@@ -574,7 +588,7 @@ class GetMapLabels(View):
 class RemoveMapLabel(DestroyAPIView):
 
     @method_decorator(custom_login_required)
-    def delete(self, request,pk):
+    def delete(self, request, pk):
         print("inside Delete")
 
         res = {

@@ -1,3 +1,14 @@
+"""
+******************************************************************************
+* Purpose:  App URL file.
+*
+* @author:  Pushkar Ishware
+* @version: 3.7
+* @since:   11-3-2018
+*
+******************************************************************************
+"""
+
 from django.conf.urls import url
 from django.contrib import admin
 from django.urls import path, include

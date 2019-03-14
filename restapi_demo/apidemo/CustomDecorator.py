@@ -1,3 +1,14 @@
+"""
+******************************************************************************
+* Purpose:  Custom Decorator for validating JWT_token.
+*
+* @author:  Pushkar Ishware
+* @version: 3.7
+* @since:   11-3-2018
+*
+******************************************************************************
+"""
+
 import jwt
 from django.contrib.auth.models import User
 from rest_framework.exceptions import PermissionDenied

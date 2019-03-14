@@ -1,3 +1,14 @@
+"""
+******************************************************************************
+* Purpose:  Validate Login Email.
+*
+* @author:  Pushkar Ishware
+* @version: 3.7
+* @since:   11-3-2018
+*
+******************************************************************************
+"""
+
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils import six
 
