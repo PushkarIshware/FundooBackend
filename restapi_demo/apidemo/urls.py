@@ -73,6 +73,12 @@ urlpatterns = [
     # RemoveMapLabel/card_id/map_label_id
     path('api/removemaplabel/<int:pk>', views.RemoveMapLabel.as_view(), name="RemoveMapLabel"),
 
+    # AddCollaborator
+    path('api/addcollaborator', views.AddCollaborator.as_view(), name="AddCollaborator"),
+
+    # RestProfile
+    path('api/RestProfile', views.RestProfile.as_view(), name="RestProfile"),
+
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),

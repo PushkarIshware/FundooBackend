@@ -8,9 +8,12 @@
 *
 ******************************************************************************
 """
+import base64
+import io
 import os
 
 from PIL.Image import isImageType
+
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_text
@@ -181,7 +184,8 @@ def UploadImg(request):
     if request.method == "POST":
         # username = request.POST.get('name')
         # print("---------------------------------", username)
-        photo = request.FILES['profile']
+        # photo = request.FILES['profile']
+        photo = request.POST.get['profile']
         print(photo)
         pic_ext = photo.name
         z = pic_ext.split('.')
@@ -191,16 +195,16 @@ def UploadImg(request):
         image = Image.open(photo, 'r')
         print(type(image), '----------------')
         print(isImageType(image))
-        # image.show()
+        image.show()
 
-        s3 = boto3.client('s3')
-        key = "pushkar111"
-        print(key)
-        s3.upload_fileobj(photo, 'fundooapp', key)
-        print("file uploaded")
-        return JsonResponse({"msg": "recieved at django"})
-    else:
-        return render(request, 'profile.html', {})
+    #     s3 = boto3.client('s3')
+    #     key = "pushkar111"
+    #     print(key)
+    #     s3.upload_fileobj(photo, 'fundooapp', key)
+    #     print("file uploaded")
+    #     return JsonResponse({"msg": "recieved at django"})
+    # else:
+    #     return render(request, 'profile.html', {})
 
 
 class AddNote(CreateAPIView):
@@ -256,14 +260,17 @@ class ShowNotes(View):
             # user_id=uid
             uid = User.objects.get(username=uname).pk
             print("user id from username-------", uid)
-            # note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
-            #                                                     'user', 'color', 'is_pinned', 'is_deleted', 'label')
-            # data_list = []
-            # for i in note_data:
-            #     data_list.append(i)
-            # note_json = json.dumps(data_list)
+            note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
+                                                                'user', 'color', 'is_pinned', 'is_deleted', 'label','collaborate')
+            data_list = []
+            for i in note_data:
+                data_list.append(i)
+            note_json = json.dumps(data_list)
 
-            note_json = GetNotes(uid)
+            # note_json = GetNotes(uid)
+
+            # item = Note.collaborate.through.objects.filter(user_id=uid).values()
+            # print(item,'collaborators')
 
             res['message'] = "Showing data."
             res['data'] = note_json
@@ -615,3 +622,91 @@ class RemoveMapLabel(DestroyAPIView):
         }
         Map_Label.objects.get(pk=pk).delete()
         return Response(res)
+
+
+class AddCollaborator(CreateAPIView):
+    """Add Collaborator API"""
+
+    serializer_class = NoteSerializer
+
+    @method_decorator(custom_login_required)
+    def post(self, request, *args, **kwargs):
+        print("inside post")
+        res = {
+            'message': 'collaborated successfully',
+            'data': {},
+            'success': True
+        }
+        # pushkar111
+        # uname = request.user_id
+        # uid = User.objects.get(username=uname).pk
+        # print("uname and his id ----",uname,uid)
+
+        # card = Note.objects.get(pk=request.data['id'])
+        # cid = card.id
+        # print(card,cid,"card, card id details")
+
+        card_id = request.data['id']
+        print(card_id, "from frontend using method")
+
+        #card_details = Note.objects.filter(id=card_id).values()
+        card_details =Note.objects.get(id=card_id)
+        print(card_details, "of given card..................")
+
+        new_user = request.data['new_username']
+        print("add collab name--------------------", new_user)
+
+        uid = User.objects.get(username=new_user).pk
+        print(uid)
+
+
+
+        user = User.objects.get(id=uid)
+
+        print(user, 'user details.........')
+
+        card_details.collaborate.add(user)
+        card_details.save()
+
+
+class RestProfile(CreateAPIView):
+    """Add Collaborator API"""
+
+    serializer_class = NoteSerializer
+
+    @method_decorator(custom_login_required)
+    def post(self, request, *args, **kwargs):
+        print("inside post")
+        res = {
+            'message': 'collaborated successfully',
+            'data': {},
+            'success': True
+        }
+        pic = request.data['profile1']
+
+        pic=pic[22:]
+        #print(pic)
+        print(pic,"piccccccccccccccccccccccccccccccccccccccc")
+#        image = Image.open(pic, 'r')
+       # image = base64.b64decode(pic)
+        image = base64.urlsafe_b64decode(pic)
+        buf = io.BytesIO(image)
+        img=Image.open(buf,'r').convert("RGB")
+
+        img.show()
+
+        s3 = boto3.client('s3')
+        key = "pushkar123456"
+        s3 =boto3.resource('s3')
+        s3.Bucket('fundooapp').put_object(Key=key, Body=img)
+        # with open(img, 'rb') as data:
+        #     s3.upload_fileobj(data, 'fundooapp', key)
+        #s3.upload_fileobj(img, 'fundooapp', key)
+        print("file uploaded")
+        print(img.format)
+        return JsonResponse({"msg": "recieved at django"})
+
+
+
+
+
