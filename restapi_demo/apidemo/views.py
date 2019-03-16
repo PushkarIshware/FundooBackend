@@ -241,7 +241,7 @@ class AddNote(CreateAPIView):
         except Exception as e:
             print(res, e)
 
-
+from itertools import chain
 class ShowNotes(View):
     """Show notes API"""
 
@@ -261,7 +261,8 @@ class ShowNotes(View):
             uid = User.objects.get(username=uname).pk
             print("user id from username-------", uid)
             note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
-                                                                'user', 'color', 'is_pinned', 'is_deleted', 'label','collaborate')
+                                                                'user', 'color', 'is_pinned', 'is_deleted', 'label',
+                                                                'collaborate')
             data_list = []
             for i in note_data:
                 data_list.append(i)
@@ -272,15 +273,47 @@ class ShowNotes(View):
             # item = Note.collaborate.through.objects.filter(user_id=uid).values()
             # print(item,'collaborators')
 
+            # collab = Note.collaborate.through.objects.filter(user_id=uid)
+            #
+            # print('col--------------------',collab)
+
+            # Collaborated Notes of this user
+
+            items = Note.collaborate.through.objects.filter(user_id=uid).values()
+            print(items,'itemmmmm from collab')
+
+
+            collab = []
+            for i in items:
+                collab.append(i['note_id'])
+
+            collab_notes = Note.objects.filter(id__in=collab).values('id', 'title', 'description', 'is_archived', 'reminder',
+                                                                'user', 'color', 'is_pinned', 'is_deleted', 'label',
+                                                                'collaborate')
+            # print('collab data from M2M',collab_notes)
+
+            collab_json =[]
+            for i in collab_notes:
+                collab_json.append(i)
+            cj=json.dumps(collab_json)
+
+            result_list = list(chain(data_list, collab_json))
+            print(result_list)
+            result_json = json.dumps(result_list)
+            # end of collaborator
+
+
+
+
             res['message'] = "Showing data."
             res['data'] = note_json
 
             res['success'] = True
-            print(res)
+            # print(res)
             j = json.dumps(res)
 
             # return HttpResponse(data1['label'])
-            return HttpResponse(note_json)
+            return HttpResponse(result_json)
 
         except Exception as e:
             print(res, e)
@@ -500,8 +533,8 @@ class Showlabels(View):
             print(data_list)
             z = json.dumps(data_list)
 
-            print("zzzzzzzz type", type(z))
-            print(z)
+            # print("zzzzzzzz type", type(z))
+            # print(z)
             res['message'] = "Showing data."
             res['data'] = z
             res['success'] = True
@@ -637,21 +670,23 @@ class AddCollaborator(CreateAPIView):
             'data': {},
             'success': True
         }
-        # pushkar111
-        # uname = request.user_id
-        # uid = User.objects.get(username=uname).pk
-        # print("uname and his id ----",uname,uid)
-
-        # card = Note.objects.get(pk=request.data['id'])
-        # cid = card.id
-        # print(card,cid,"card, card id details")
-
         card_id = request.data['id']
         print(card_id, "from frontend using method")
 
-        #card_details = Note.objects.filter(id=card_id).values()
-        card_details =Note.objects.get(id=card_id)
+        # card_details = Note.objects.filter(id=card_id).values()
+        card_details = Note.objects.get(id=card_id)
+
         print(card_details, "of given card..................")
+
+        title = card_details.title
+        print(title)
+        description = card_details.description
+        print(description)
+        color = card_details.color
+        print(color)
+
+
+
 
         new_user = request.data['new_username']
         print("add collab name--------------------", new_user)
@@ -659,16 +694,18 @@ class AddCollaborator(CreateAPIView):
         uid = User.objects.get(username=new_user).pk
         print(uid)
 
-
-
-        user = User.objects.get(id=uid)
-
-        print(user, 'user details.........')
-
-        card_details.collaborate.add(user)
         card_details.save()
 
+        # user = User.objects.get(id=uid)
+        #
+        # print(user, 'user details.........')
+        #
+        # card_details.collaborate.add(user)
+        # card_details.save()
 
+        return Response(res)
+
+from django.core.files.uploadedfile import InMemoryUploadedFile
 class RestProfile(CreateAPIView):
     """Add Collaborator API"""
 
@@ -682,31 +719,48 @@ class RestProfile(CreateAPIView):
             'data': {},
             'success': True
         }
+        uname = request.user_id
+        print(uname,'2234567890-')
+        print(type(uname))
         pic = request.data['profile1']
-
-        pic=pic[22:]
-        #print(pic)
-        print(pic,"piccccccccccccccccccccccccccccccccccccccc")
-#        image = Image.open(pic, 'r')
-       # image = base64.b64decode(pic)
+        #t=request.FILES['profile1']
+        #print(t)
+        pic = pic[22:]
+        # print(pic)
+        #print(pic, "piccccccccccccccccccccccccccccccccccccccc")
+        #        image = Image.open(pic, 'r')
+        # image = base64.b64decode(pic)
         image = base64.urlsafe_b64decode(pic)
         buf = io.BytesIO(image)
-        img=Image.open(buf,'r').convert("RGB")
+        img = Image.open(buf, 'r').convert("RGB")
 
         img.show()
-
+        out_img = io.BytesIO()
         s3 = boto3.client('s3')
         key = "pushkar123456"
-        s3 =boto3.resource('s3')
-        s3.Bucket('fundooapp').put_object(Key=key, Body=img)
+        s3 = boto3.client('s3')
+        #out_img = BytesIO()
+        img.save(out_img, format="jpeg")
+        img.seek(0)
+        print('------------',img)
+        img3 = Image.open(out_img)
+        print('img 3-----',img3)
+        print(img3.size)
+        img3.save(os.path.join('/home/admin1/Desktop/'+str(uname)+'.jpeg'), 'JPEG')
+        #thumb_file = InMemoryUploadedFile(out_img,None,img3,'image/jpeg',img3.size,None)
+        #print('thumb---',thumb_file)
+        # out_img.seek(0)  # Without this line it fails
+        # self.bucket.put_object(Bucket=self.bucket_name,
+        #                        Key=key,
+        #                        Body=out_img)
+
+        #s3.Bucket('bucketprofile').put_object(Key=key, Body='/home/admin1/Desktop/'+str(uname)+'.jpeg')
+        file=open('/home/admin1/Desktop/'+str(uname)+'.jpeg','rb')
+        s3.upload_fileobj(file,'bucketprofile',Key=str(uname))
         # with open(img, 'rb') as data:
         #     s3.upload_fileobj(data, 'fundooapp', key)
-        #s3.upload_fileobj(img, 'fundooapp', key)
-        print("file uploaded")
-        print(img.format)
+        # s3.upload_fileobj(img, 'fundooapp', key)
+        #print("file uploaded")
+        #print(img.format)
+
         return JsonResponse({"msg": "recieved at django"})
-
-
-
-
-
