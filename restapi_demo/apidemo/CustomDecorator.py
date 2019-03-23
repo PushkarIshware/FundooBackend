@@ -14,25 +14,25 @@ import jwt
 from django.contrib.auth.models import User
 from rest_framework.exceptions import PermissionDenied
 
+from .services import redis_methods
+
 
 def custom_login_required(function):
     def wrap(request, *args, **kwargs):
-        print(request.META.get('HTTP_AUTHORIZATION'))
         token = request.META.get('HTTP_AUTHORIZATION')
-        print("---------------------------------------", token)
-        # os.getenv("DOMAIN")
-        # token_decode = jwt.decode(token, "Cypher", algorithms=['HS256'])
+
         token_decode = jwt.decode(token, os.getenv("SIGNATURE"), algorithms=['HS256'])
+
         uname = token_decode.get('username')
 
-        print("---------------------uname------------------", uname)
         user_id = User.objects.get(username=uname)
 
-        print("-------user__id", user_id)
         entry = User.objects.get(pk=user_id.id)
 
-        print("-----------------entry----------------------", entry)
         request.user_id = user_id
+
+        redis_methods.set_token('token', token)
+        print('logged in redis token----------------', redis_methods.get_token('token'))
 
         if entry:
             return function(request, *args, **kwargs)

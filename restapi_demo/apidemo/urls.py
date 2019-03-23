@@ -78,6 +78,12 @@ urlpatterns = [
 
     # RestProfile
     path('api/RestProfile', views.RestProfile.as_view(), name="RestProfile"),
+    
+    # geturl
+    # path('api/geturl', views.geturl, name="geturl"),
+
+    # get_url
+    path('api/get_url', views.get_url.as_view(), name="RestProfile"),
 
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',

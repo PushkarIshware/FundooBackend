@@ -28,7 +28,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .ModelServices import GetNotes
-from .services import redis_info
+# from .services import redis_info
 from .CustomDecorator import custom_login_required
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
@@ -167,8 +167,8 @@ class RestLogin(CreateAPIView):
                     res['message'] = "Logged in Successfully"
                     res['data'] = {"token": token}
                     res['success'] = True
-                    redis_token = redis_info.token_set('token', res['data'])
-                    print("redis-----", redis_token)
+                    # redis_token = redis_info.token_set('token', res['data'])
+                    # print("redis-----", redis_token)
                     return Response(res)
                 else:
                     return Response(res)
@@ -241,7 +241,10 @@ class AddNote(CreateAPIView):
         except Exception as e:
             print(res, e)
 
+
 from itertools import chain
+
+
 class ShowNotes(View):
     """Show notes API"""
 
@@ -280,30 +283,28 @@ class ShowNotes(View):
             # Collaborated Notes of this user
 
             items = Note.collaborate.through.objects.filter(user_id=uid).values()
-            print(items,'itemmmmm from collab')
-
+            print(items, 'itemmmmm from collab')
 
             collab = []
             for i in items:
                 collab.append(i['note_id'])
 
-            collab_notes = Note.objects.filter(id__in=collab).values('id', 'title', 'description', 'is_archived', 'reminder',
-                                                                'user', 'color', 'is_pinned', 'is_deleted', 'label',
-                                                                'collaborate')
+            collab_notes = Note.objects.filter(id__in=collab).values('id', 'title', 'description', 'is_archived',
+                                                                     'reminder',
+                                                                     'user', 'color', 'is_pinned', 'is_deleted',
+                                                                     'label',
+                                                                     'collaborate')
             # print('collab data from M2M',collab_notes)
 
-            collab_json =[]
+            collab_json = []
             for i in collab_notes:
                 collab_json.append(i)
-            cj=json.dumps(collab_json)
+            cj = json.dumps(collab_json)
 
             result_list = list(chain(data_list, collab_json))
             print(result_list)
             result_json = json.dumps(result_list)
             # end of collaborator
-
-
-
 
             res['message'] = "Showing data."
             res['data'] = note_json
@@ -685,9 +686,6 @@ class AddCollaborator(CreateAPIView):
         color = card_details.color
         print(color)
 
-
-
-
         new_user = request.data['new_username']
         print("add collab name--------------------", new_user)
 
@@ -705,7 +703,10 @@ class AddCollaborator(CreateAPIView):
 
         return Response(res)
 
+
 from django.core.files.uploadedfile import InMemoryUploadedFile
+
+
 class RestProfile(CreateAPIView):
     """Add Collaborator API"""
 
@@ -720,47 +721,72 @@ class RestProfile(CreateAPIView):
             'success': True
         }
         uname = request.user_id
-        print(uname,'2234567890-')
+        print(uname, '2234567890-')
         print(type(uname))
         pic = request.data['profile1']
-        #t=request.FILES['profile1']
-        #print(t)
+
+
+
         pic = pic[22:]
-        # print(pic)
-        #print(pic, "piccccccccccccccccccccccccccccccccccccccc")
-        #        image = Image.open(pic, 'r')
-        # image = base64.b64decode(pic)
         image = base64.urlsafe_b64decode(pic)
         buf = io.BytesIO(image)
         img = Image.open(buf, 'r').convert("RGB")
-
         img.show()
         out_img = io.BytesIO()
         s3 = boto3.client('s3')
-        key = "pushkar123456"
-        s3 = boto3.client('s3')
-        #out_img = BytesIO()
+        # out_img = BytesIO()
         img.save(out_img, format="jpeg")
         img.seek(0)
-        print('------------',img)
+        print('------------', img)
         img3 = Image.open(out_img)
-        print('img 3-----',img3)
+        print('img 3-----', img3)
         print(img3.size)
-        img3.save(os.path.join('/home/admin1/Desktop/'+str(uname)+'.jpeg'), 'JPEG')
-        #thumb_file = InMemoryUploadedFile(out_img,None,img3,'image/jpeg',img3.size,None)
-        #print('thumb---',thumb_file)
-        # out_img.seek(0)  # Without this line it fails
-        # self.bucket.put_object(Bucket=self.bucket_name,
-        #                        Key=key,
-        #                        Body=out_img)
+        img3.save(os.path.join('/home/admin1/Desktop/' + str(uname) + '.jpeg'), 'JPEG')
+        file = open('/home/admin1/Desktop/' + str(uname) + '.jpeg', 'rb')
 
-        #s3.Bucket('bucketprofile').put_object(Key=key, Body='/home/admin1/Desktop/'+str(uname)+'.jpeg')
-        file=open('/home/admin1/Desktop/'+str(uname)+'.jpeg','rb')
-        s3.upload_fileobj(file,'bucketprofile',Key=str(uname))
-        # with open(img, 'rb') as data:
-        #     s3.upload_fileobj(data, 'fundooapp', key)
-        # s3.upload_fileobj(img, 'fundooapp', key)
-        #print("file uploaded")
-        #print(img.format)
+        s3.upload_fileobj(file, 'bucketprofile', Key=str(uname) + ".jpeg")
 
-        return JsonResponse({"msg": "recieved at django"})
+
+        # r3 = boto3.client('s3')
+        # file2 = s3.download_file('bucketprofile', str(uname) + ".jpeg", 'demo.jpeg')
+
+        link = "https://s3.ap-south-1.amazonaws.com/bucketprofile/"+str(uname) + ".jpeg"
+        print('sher aaya------',link)
+
+        zm = {"data": link}
+        z = json.dumps(zm)
+        return HttpResponse(z)
+
+
+class get_url(View):
+
+    # serializer_class = NoteSerializer
+    @method_decorator(custom_login_required)
+    def get(self, request):
+        uname = request.user_id
+        print("------------------authUSER get url-----", uname)
+        global note_data
+        res = {
+            'message': 'Something bad happened',
+            'data': {},
+            'label': {},
+            'success': False
+        }
+
+        link = "https://s3.ap-south-1.amazonaws.com/bucketprofile/" + str(uname) + ".jpeg"
+        print('sher aaya------', link)
+
+        zm = {"data": link, "username": str(uname)}
+        z = json.dumps(zm)
+        return HttpResponse(z)
+
+
+
+# from storages.backends.s3boto import S3BotoStorage
+#
+#
+# def geturl(request):
+#     print("inside geturl")
+#
+#     amazon_image_url = S3BotoStorage().url("pushkar111")
+#     print(amazon_image_url)
