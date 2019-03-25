@@ -31,9 +31,7 @@ urlpatterns = [
     # Rest Login
     path('api/login', views.RestLogin.as_view(), name="RestLogin"),
 
-    # Profile
-    path('api/profile', views.UploadImg, name="Profile"),
-
+    
     # Note
     path('api/note', views.AddNote.as_view(), name="AddNote"),
 
@@ -79,16 +77,12 @@ urlpatterns = [
     # RestProfile
     path('api/RestProfile', views.RestProfile.as_view(), name="RestProfile"),
     
-    # geturl
-    # path('api/geturl', views.geturl, name="geturl"),
-
     # get_url
-    path('api/get_url', views.get_url.as_view(), name="RestProfile"),
+    path('api/get_url', views.ImageUrl.as_view(), name="RestProfile"),
 
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),
-
 
     # Reset Password
     url(r'^password_reset/$', PasswordResetView.as_view(), name='password_reset'),

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 import os
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,7 +26,6 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 ALLOWED_HOSTS = ['127.0.0.1']
-
 
 from dotenv import load_dotenv
 
@@ -175,19 +175,3 @@ LOGOUT_REDIRECT_URL = 'log_me/'
 CACHE_TTL = 60 * 15
 
 
-
-
-
-# AWS_STORAGE_BUCKET_NAME = 'bucketprofile'
-# AWS_S3_REGION_NAME = 'ap-south-1'  # e.g. us-east-2
-# AWS_ACCESS_KEY_ID = 'AKIAIVWTEQZQUNCUJLZQ'
-# AWS_SECRET_ACCESS_KEY = 'jxYTxUkxk7BrRMukdgLn/6kjWoaG0BvZCNhuZN8w'
-# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-
-# # Tell django-storages the domain to use to refer to static files.
-# AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
-#
-# # Tell the staticfiles app to use S3Boto3 storage when writing the collected static files (when
-# # you run `collectstatic`).
-# STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
