@@ -80,6 +80,12 @@ urlpatterns = [
     # get_url
     path('api/get_url', views.ImageUrl.as_view(), name="RestProfile"),
 
+    # ShowCollaborators
+    path('api/sc', views.ShowCollaborators.as_view(), name="RestProfile"),
+
+    # social Login
+    url(r'^oauth/', include('social_django.urls', namespace='social')),
+
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
         views.activate, name='activate'),

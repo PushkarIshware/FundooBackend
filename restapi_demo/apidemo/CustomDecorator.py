@@ -32,7 +32,7 @@ def custom_login_required(function):
         request.user_id = user_id
 
         redis_methods.set_token('token', token)
-        print('logged in redis token----------------', redis_methods.get_token('token'))
+        # print('logged in redis token----------------', redis_methods.get_token('token'))
 
         if entry:
             return function(request, *args, **kwargs)
