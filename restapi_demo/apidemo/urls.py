@@ -85,6 +85,13 @@ urlpatterns = [
 
     # social Login
     url(r'^oauth/', include('social_django.urls', namespace='social')),
+    url(r'^home$', views.home, name='home'),
+
+    # Delete Collaborator
+    path('api/removemcollaborator/<int:pk>', views.DeleteCollaborator.as_view(), name="DeleteCollaborator"),
+
+    # date
+    path('api/date', views.date, name="date"),
 
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',

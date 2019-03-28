@@ -9,27 +9,18 @@
 ******************************************************************************
 """
 import base64
+import datetime
 import io
 import os
 
 import botocore
-from PIL.Image import isImageType
-
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_text
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.template.loader import render_to_string
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework import generics, HTTP_HEADER_ENCODING
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import CreateAPIView, UpdateAPIView, DestroyAPIView
-from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from .ModelServices import GetNotes
-# from .services import redis_info
 from .CustomDecorator import custom_login_required
 from .tokens import account_activation_token
 from django.core.mail import EmailMessage
@@ -38,19 +29,18 @@ from django.contrib.auth import get_user_model, authenticate, login
 import jwt
 import json
 from django.contrib.auth.models import User
-import re
 from django.http import JsonResponse
 from PIL import Image
 import boto3
 from .serializers import registrationSerializer
-# , LoginSerializer, NoteSerializer, LabelSerializer, MapLabelSerializer
 from django.views import View
 from .models import Note, Label, Map_Label
 from .LoginSerializer import LoginSerializer
 from .NoteSerializer import NoteSerializer
 from .LabelSerializer import LabelSerializer
 from .MapLabelSerializer import MapLabelSerializer
-
+from itertools import chain
+from .tasks import *
 User = get_user_model()
 
 
@@ -75,7 +65,6 @@ def activate(request, uidb64, token):
     try:
         uid = force_text(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=uid)  # gets the username
-        # print('above if', user)
         if user and account_activation_token.check_token(user, token):
             user.is_active = True
             user.save()
@@ -90,9 +79,6 @@ def activate(request, uidb64, token):
         return HttpResponse('Something bad happened')
 
 
-from dotenv import load_dotenv
-
-
 class RestRegistration(CreateAPIView):
     """ Registration API """
 
@@ -102,7 +88,6 @@ class RestRegistration(CreateAPIView):
         res = {"message": "something bad happened",
                "data": {},
                "success": False}
-        # print(request.data)
         username = request.data['username']
         email = request.data['email']
         password = request.data['password1']
@@ -113,8 +98,7 @@ class RestRegistration(CreateAPIView):
 
             message = render_to_string('acc_active_email.html', {
                 'user': user,
-                'domain': 'http://127.0.0.1:8000',
-                'domain1': os.getenv("DOMAIN"),
+                'domain': request.META.get('HTTP_HOST'),
                 'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
                 'token': account_activation_token.make_token(user),
             })
@@ -122,6 +106,7 @@ class RestRegistration(CreateAPIView):
             to_email = email
             send_email = EmailMessage(mail_subject, message, to=[to_email])
             send_email.send()
+            # Send_mail.delay(username, email)
             res['message'] = "registered Successfully...Please activate your Account"
             res['success'] = True
             return Response(res)
@@ -129,10 +114,6 @@ class RestRegistration(CreateAPIView):
             return Response(res)
 
 
-from rest_framework.authtoken.models import Token
-
-
-# @require_POST
 class RestLogin(CreateAPIView):
     """ Login API """
 
@@ -143,7 +124,6 @@ class RestLogin(CreateAPIView):
                "data": {},
                "success": False,
                "user_id": {}}
-        # print(request.data)
         try:
             username = request.data['username']
             if username is None:
@@ -163,13 +143,10 @@ class RestLogin(CreateAPIView):
                     jwt_token = {
                         'token': jwt.encode(payload, os.getenv("SIGNATURE"), algorithm='HS256').decode('utf-8')
                     }
-                    # print(jwt_token)
                     token = jwt_token['token']
                     res['message'] = "Logged in Successfully"
                     res['data'] = {"token": token}
                     res['success'] = True
-                    # redis_token = redis_info.token_set('token', res['data'])
-                    # print("redis-----", redis_token)
                     return Response(res)
                 else:
                     return Response(res)
@@ -188,21 +165,16 @@ class AddNote(CreateAPIView):
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         uname = request.user_id
-        # print(uname, "    from add notes")
         try:
             res = {
                 'message': 'Something bad happened',
                 'success': False
             }
-            # uname = jwt_tok(request)
             uid = User.objects.get(username=uname).pk
-            # print(uid)
             serializer = NoteSerializer(data=request.data)
 
             if request.data['title'] and request.data['description'] is None:
                 raise Exception("title and description required ")
-
-            # print("title-------", request.data['title'])
 
             if serializer.is_valid():
                 # serializer.user_id = uid
@@ -215,16 +187,12 @@ class AddNote(CreateAPIView):
             print(res, e)
 
 
-from itertools import chain
-
-
 class ShowNotes(View):
     """Show notes API"""
 
     @method_decorator(custom_login_required)
     def get(self, request):
         uname = request.user_id
-        # print("------------------authUSER-----", uname)
         global note_data
         res = {
             'message': 'Something bad happened',
@@ -233,59 +201,45 @@ class ShowNotes(View):
             'success': False
         }
         try:
-            # user_id=uid
-
             uid = User.objects.get(username=uname).pk
-            # print("user id from username-------", uid)
             note_data = Note.objects.filter(user_id=uid).values('id', 'title', 'description', 'is_archived', 'reminder',
                                                                 'user', 'color', 'is_pinned', 'is_deleted', 'label',
                                                                 'collaborate')
             demo = []
             for i in note_data:
-                # print(i['id'])
                 if Note.collaborate.through.objects.filter(note_id=i['id']).exists():
                     demo.append(i['id'])
 
             data = set(demo)
             new = list(data)
 
-            # print('notes which are colaborated by this user ',new)
             cola_with = Note.collaborate.through.objects.filter(note_id__in=new).values()
-            # print('collaborate with THis', cola_with)
 
             names = []
             for i in cola_with:
                 item = User.objects.filter(id=i['user_id']).values('id', 'username')
-                # print(item)
                 names.append(item)
-            # print('collab with names', names)
 
             n = []
             for i in names:
                 n.append(i)
-            # print(n)
 
             name_list = []
             for i in names:
                 name_list.append(i)
 
-            # print(name_list, 'djbkdsfkdksfksfkfsdfk')
-
             data_list = []
             for i in note_data:
                 data_list.append(i)
             note_json = json.dumps(data_list)
-            # print(note_json,'noteeeeeeeeeeeeeeeee data')
 
             items = Note.collaborate.through.objects.filter(user_id=uid).values()
-            # print(items, 'itemmmmm from collab')
 
             names = []
             for i in items:
                 j = User.objects.get(id=i['user_id'])
                 # print(j.username)
                 names.append(str(j))
-            # print('names---------', names)
 
             collab = []
             for i in items:
@@ -301,22 +255,13 @@ class ShowNotes(View):
             for i in collab_notes:
                 collab_json.append(i)
             cj = json.dumps(collab_json)
-            # print(collab_notes,'---------colab json')
             result_list = list(chain(data_list, collab_json))
-            # print(result_list)
             result_json = json.dumps(result_list)
-            # end of collaborator
-            print('-------------------result json----------------------')
-
             res['message'] = "Showing data."
             res['data'] = note_json
-
             res['success'] = True
-            # print(res)
             j = json.dumps(res)
-
-            # return HttpResponse(data1['label'])
-            print('------------------------------end of show api-----------------')
+            demo_celery.delay()
             return HttpResponse(result_json)
 
         except Exception as e:
@@ -339,8 +284,6 @@ class UpdateNote(UpdateAPIView):
             queryset = Note.objects.get(pk=request.data['id'])
 
             item = Note.objects.get(pk=request.data['id'])
-            # print(item)
-            # print(item.id)
             title = request.data['title']
             des = request.data['description']
             color = request.data['color']
@@ -358,7 +301,6 @@ class UpdateNote(UpdateAPIView):
             res['success'] = True
 
             return Response(res)
-            # return HttpResponse(res)
         except Exception as e:
             print(res, e)
 
@@ -372,15 +314,12 @@ class DeleteNote(UpdateAPIView):
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         uname = request.user_id
-        # print(uname)
         try:
             res = {
                 'message': 'Something bad happened',
                 'success': False
             }
             item = Note.objects.get(pk=request.data['id'])
-            # print(item)
-            # print(item.id)
             delete = request.data['is_deleted']
             item.is_deleted = delete
             item.save()
@@ -494,7 +433,6 @@ class CreateLabel(CreateAPIView):
 
             serializer = LabelSerializer(data=request.data)
             label = request.data['label_name']
-            # print(serializer)
             if request.data['label_name'] is "":
                 raise Exception("label name required ")
 
@@ -525,20 +463,12 @@ class Showlabels(View):
             'success': False
         }
         try:
-            # user_id=uid
             uid = User.objects.get(username=uname).pk
-            # print("user id from username-------", uid)
             note_data = Label.objects.filter(user_id=uid).values('id', 'label_name', 'user')
-            # print(type(note_data))
-
             data_list = []
             for i in note_data:
                 data_list.append(i)
-            # print(data_list)
             z = json.dumps(data_list)
-
-            # print("zzzzzzzz type", type(z))
-            # print(z)
             res['message'] = "Showing data."
             res['data'] = z
             res['success'] = True
@@ -569,8 +499,6 @@ class MapLabel(CreateAPIView):
 
     serializer_class = MapLabelSerializer
 
-    # serializer_class1 = NoteSerializer  # adding labels to Note Models
-
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
         uname = request.user_id
@@ -585,7 +513,6 @@ class MapLabel(CreateAPIView):
             card = Note.objects.get(pk=request.data['id'])
             cid = card.id
             label = Label.objects.get(pk=request.data['label_id'])
-            # print("from map label -------", label)
             lid = label.id
             mapping = Map_Label.objects.create(label_id=Label.objects.get(id=lid),
                                                user=User.objects.get(id=uid),
@@ -603,8 +530,6 @@ class GetMapLabels(View):
     @method_decorator(custom_login_required)
     def get(self, request):
         uname = request.user_id
-        # uname = jwt_tok(request)
-        # uname = "pushkar111"
         res = {
             'message': 'Something bad happened',
             'data': {},
@@ -612,17 +537,13 @@ class GetMapLabels(View):
         }
         try:
             uid = User.objects.get(username=uname).pk
-            # print("user id from username-------", uid)
             note_data = Map_Label.objects.filter(user_id=uid).values('id', 'user_id',
                                                                      'map_label_name',
                                                                      'note_id')
             data_list = []
             for i in note_data:
                 data_list.append(i)
-            # print(data_list)
             z = json.dumps(data_list)
-            # print("zzzzzzzz type", type(z))
-            # print(z)
             res['message'] = "Showing data."
             res['data'] = z
             res['success'] = True
@@ -645,6 +566,67 @@ class RemoveMapLabel(DestroyAPIView):
         }
         Map_Label.objects.get(pk=pk).delete()
         return Response(res)
+
+
+class RestProfile(CreateAPIView):
+    """Upload Profile Photo API"""
+
+    serializer_class = NoteSerializer
+
+    @method_decorator(custom_login_required)
+    def post(self, request, *args, **kwargs):
+        print("inside post")
+        res = {
+            'message': 'Image Uploaded',
+            'data': {},
+            'success': True
+        }
+        uname = request.user_id
+        pic = request.data['profile1']
+
+        # working code
+        pic = pic[22:]
+        image = base64.urlsafe_b64decode(pic)
+        buf = io.BytesIO(image)
+        img = Image.open(buf, 'r').convert("RGB")
+        img.show()
+        out_img = io.BytesIO()
+        s3 = boto3.client('s3')
+        img.save(out_img, format="jpeg")
+        img.seek(0)
+        print('------------', img)
+        img3 = Image.open(out_img)
+        print('img 3-----', img3)
+        print(img3.size)
+        img3.save(os.path.join('/home/admin1/Desktop/' + str(uname) + '.jpeg'), 'JPEG')
+        file = open('/home/admin1/Desktop/' + str(uname) + '.jpeg', 'rb')
+        s3.upload_fileobj(file, 'bucketprofile', Key=str(uname) + ".jpeg", ExtraArgs={'ACL': 'public-read'})
+        z = json.dumps(res)
+        return HttpResponse(z)
+
+
+class ImageUrl(View):
+    """ Show Profile Photo API """
+
+    @method_decorator(custom_login_required)
+    def get(self, request):
+        uname = request.user_id
+
+        link = "https://s3.ap-south-1.amazonaws.com/bucketprofile/" + str(uname) + ".jpeg"
+
+        s3 = boto3.resource('s3')
+        try:
+            s3.Object('bucketprofile', str(uname) + ".jpeg").load()
+            res = {"data": link, "username": str(uname)}
+            res_json = json.dumps(res)
+            return HttpResponse(res_json)
+
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == "404":
+                link = "https://s3.ap-south-1.amazonaws.com/bucketprofile/Default_Photo.jpeg"
+                res = {"data": link, "username": str(uname)}
+                res_json = json.dumps(res)
+                return HttpResponse(res_json)
 
 
 class AddCollaborator(CreateAPIView):
@@ -672,12 +654,11 @@ class AddCollaborator(CreateAPIView):
 
 
 class ShowCollaborators(View):
+    """ Show Collaborator API """
+
     @method_decorator(custom_login_required)
     def get(self, request):
-        print('----------------------inside show collab-------------------')
         uname = request.user_id
-        # uname = jwt_tok(request)
-        # uname = "nikhil"
         res = {
             'message': 'Something bad happened',
             'data': {},
@@ -686,16 +667,15 @@ class ShowCollaborators(View):
         uid = User.objects.get(username=uname).pk
         # note details
         note_q = Note.objects.filter(user_id=uid).values('id')
-        print(note_q,'ids of given usr notes from NOTE table')
+        print(note_q, 'ids of given usr notes from NOTE table')
 
         note_d = []
         for i in note_q:
             note_d.append(i['id'])
         print(note_d)
 
-        # -------------------------------------------
         q = Note.collaborate.through.objects.filter(note_id__in=note_d).values('note_id', 'user_id')
-        print(q,'present notes in collab')
+        print(q, 'present notes in collab')
 
         ids = []
         note_i = []
@@ -710,192 +690,68 @@ class ShowCollaborators(View):
             na.append(str(name))
             print(name)
         print(na)
-        ok=[]
+        ok = []
         data = {"uid": "", "uname": "", "note_id": ""}
         for i, j, k in zip(ids, na, note_i):
             data = {"uid": i, "uname": j, "note_id": k}
             ok.append(data)
 
         result_json = json.dumps(ok)
-        print(result_json,'newwwwwwwwwwwwwwwwwwwwwwwwwww')
-        # -------------------------------------------
-
-        # # from collab table
-        # items = Note.collaborate.through.objects.filter(user_id=uid).values()
-        # print("--------------->",items)
-        #
-        #
-        # # from collab table check data
-        # demo = []
-        # for i in note_data:
-        #     print(i['id'])
-        #     if Note.collaborate.through.objects.filter(note_id=i['id']).exists():
-        #         demo.append(i['id'])
-        # print(demo,'____________________________________')
-        #
-        # # data = set(demo)
-        # # new = list(data)
-        #
-        # # print('notes which are colaborated by this user ',new)
-        # cola_with = Note.collaborate.through.objects.filter(note_id__in=demo).values()
-        # # print('collaborate with THis', cola_with)
-        #
-        #
-        #
-        # names1 = []
-        # for i in cola_with:
-        #     item = User.objects.filter(id=i['user_id']).values('id', 'username')
-        #     # print(item)
-        #     names1.append(item)
-        # # print('collab with names----------------', names1)
-        #
-        #
-        #
-        # # n = []
-        # # for i in names1:
-        # #     n.append(i)
-        # # print('nnnnnnnnnnnnnnnNNNNNNNNNNNNNNNNNNN',n)
-        #
-        # name_list = []
-        # for i in names1:
-        #     name_list.append(i)
-        #
-        # print(name_list, 'baby--------------------')
-        #
-        # result = []
-        # for i in name_list:
-        #     result.append(i)
-        #
-        # result = json.dumps(result)
-        # print('----------------------end show collab-------------------')
-        # # note_details = json.dumps(note_details)
-
-        # note_d = []
-        # for i in note_q:
-        #     note_d.append(i)
-        # print('daw', note_d)
-        '''
-        coll_q = Note.collaborate.through.objects.filter(user_id=uid).values('note_id', 'user_id')
-        # print('dawdaw', coll_q)
-
-        coll_d = []
-        for i in coll_q:
-            coll_d.append(i)
-        print('dawdawdaw', coll_d)
-
-        collab_note_id = []
-        for z in coll_d:
-            id=z['note_id']
-            collab_note_id.append(id)
-
-        print('ids in collab',collab_note_id)
-
-        owner_id = Note.objects.filter(id__in=collab_note_id).values('user')
-
-        owner_id_list = []
-        for i in owner_id:
-            owner_id_list.append(i['user'])
-
-        print(owner_id_list,'aeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')
-        
-        # getting multiple uid and uname
-        uname_list = []
-        for i in owner_id_list:
-            name = User.objects.get(id=i)
-            print(name)
-            uname_list.append(str(name))
-        print(uname_list,'username list')
-
-        hmm=[]
-        data={"uid":"","uname":"","note_id":""}
-        for i,j,k in zip(owner_id_list,uname_list,collab_note_id):
-            data = {"uid": i, "uname": j,"note_id":k}
-            hmm.append(data)
-
-        result_json = json.dumps(hmm)
-        print(result_json)
-        '''
-
         return HttpResponse(result_json)
 
 
-# class DeleteCollaborator(DestroyAPIView):
-#     """Delete Collaborator API"""
-#
-#     @method_decorator(custom_login_required)
-#     def delete(self, request, pk):
-#         print("inside Delete")
-#
-#         res = {
-#             'message': 'Collaborator Deleted',
-#             'data': {},
-#             'success': True
-#         }
-#         # items = Note.collaborate.through.objects.filter(user_id=pk,note_id=noteid).values()
-#         # print(items, 'itemmmmm from collab')
-#         # Label.objects.get(pk=pk).delete()
-#         return Response(res)
-
-
-class RestProfile(CreateAPIView):
-    """Add Collaborator API"""
-
-    serializer_class = NoteSerializer
+class DeleteCollaborator(DestroyAPIView):
+    """Delete Collaborator API"""
 
     @method_decorator(custom_login_required)
-    def post(self, request, *args, **kwargs):
-        print("inside post")
+    def delete(self, request, pk):
+        print("inside Delete")
+
         res = {
-            'message': 'Image Uploaded',
+            'message': 'Collaborator Deleted',
             'data': {},
             'success': True
         }
-        uname = request.user_id
-        pic = request.data['profile1']
-
-        # working code
-        pic = pic[22:]
-        image = base64.urlsafe_b64decode(pic)
-        buf = io.BytesIO(image)
-        img = Image.open(buf, 'r').convert("RGB")
-        img.show()
-        out_img = io.BytesIO()
-        s3 = boto3.client('s3')
-        # out_img = BytesIO()
-        img.save(out_img, format="jpeg")
-        img.seek(0)
-        print('------------', img)
-        img3 = Image.open(out_img)
-        print('img 3-----', img3)
-        print(img3.size)
-        img3.save(os.path.join('/home/admin1/Desktop/' + str(uname) + '.jpeg'), 'JPEG')
-        file = open('/home/admin1/Desktop/' + str(uname) + '.jpeg', 'rb')
-        s3.upload_fileobj(file, 'bucketprofile', Key=str(uname) + ".jpeg", ExtraArgs={'ACL': 'public-read'})
-        z = json.dumps(res)
-        return HttpResponse(z)
+        obj = Note.collaborate.through.objects.get(note_id=pk)
+        obj.delete()
+        return Response(res)
 
 
-class ImageUrl(View):
+def home(request):
+    return render(request, 'home.html')
 
-    @method_decorator(custom_login_required)
-    def get(self, request):
-        uname = request.user_id
-        # print("------------------inside imgURL get url-----", uname)
+from datetime import datetime,timedelta
+def date(request):
+    today_date = datetime.now().date()
+    print(type(today_date))
+    uname = "ishware"
 
-        link = "https://s3.ap-south-1.amazonaws.com/bucketprofile/" + str(uname) + ".jpeg"
+    uid = User.objects.get(username=uname).pk
 
-        s3 = boto3.resource('s3')
-        try:
-            s3.Object('bucketprofile', str(uname) + ".jpeg").load()
-            # print("found")
-            res = {"data": link, "username": str(uname)}
-            res_json = json.dumps(res)
-            return HttpResponse(res_json)
+    note_rem = Note.objects.filter(user_id=uid).values()
+    # print(note_rem)
 
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "404":
-                # print("not found")
-                link = "https://s3.ap-south-1.amazonaws.com/bucketprofile/Default_Photo.jpeg"
-                res = {"data": link, "username": str(uname)}
-                res_json = json.dumps(res)
-                return HttpResponse(res_json)
+    date_type = []
+    for i in note_rem:
+        if i['reminder']:
+            date_type.append(datetime.strptime(i['reminder'], '%d/%m/%Y').date())
+
+
+    print(date_type)
+
+    for i in date_type:
+        print(i)
+        z = i - today_date
+        z=str(z)
+        diff=z[0:1]
+        diff_int=int(diff)
+        # print(diff_int)
+
+        mail_date_diff = diff_int//2
+        print(mail_date_diff)
+
+        # dt = timedelta.days(str(mail_date_diff))
+        # print(type(dt))
+        # print(dt,'----------------')
+        # # mail_date = today_date + datetime.timedelta(mail_date_diff)
+        # print(mail_date)
