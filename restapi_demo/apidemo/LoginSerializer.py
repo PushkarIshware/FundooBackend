@@ -16,6 +16,8 @@ from django.contrib.auth.models import User
 User = get_user_model()
 
 
+# login serializer for checking user credentials
+
 class LoginSerializer(serializers.ModelSerializer):
     username = serializers.CharField(max_length=20)
     password = serializers.CharField(style={'input_type': 'password'})

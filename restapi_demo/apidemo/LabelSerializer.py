@@ -13,7 +13,9 @@ from rest_framework import serializers
 from .models import Label
 
 
+# label serializer for storing labels to database
+
 class LabelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Label
-        fields = ('id','label_name', 'user')
+        fields = ('id', 'label_name', 'user')

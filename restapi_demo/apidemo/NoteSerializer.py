@@ -17,6 +17,8 @@ from .models import Note
 User = get_user_model()
 
 
+# Note serializer for storing user created notes to database
+
 class NoteSerializer(serializers.ModelSerializer):
     # Serializer for Notes
 

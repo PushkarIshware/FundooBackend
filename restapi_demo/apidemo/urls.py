@@ -83,12 +83,16 @@ urlpatterns = [
     # ShowCollaborators
     path('api/sc', views.ShowCollaborators.as_view(), name="RestProfile"),
 
+    # Delete Collaborator
+    path('api/removemcollaborator/<int:pk>', views.DeleteCollaborator.as_view(), name="DeleteCollaborator"),
+
+    # SetReminder
+    path('api/set_reminder/<int:pk>', views.SetReminder.as_view(), name='UpdateNote'),
+
     # social Login
     url(r'^oauth/', include('social_django.urls', namespace='social')),
     url(r'^home$', views.home, name='home'),
 
-    # Delete Collaborator
-    path('api/removemcollaborator/<int:pk>', views.DeleteCollaborator.as_view(), name="DeleteCollaborator"),
 
     # date
     path('api/date', views.date, name="date"),

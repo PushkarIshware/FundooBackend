@@ -13,6 +13,8 @@ from rest_framework import serializers
 from .models import Map_Label
 
 
+# map serializer for storing map labels to particular note
+
 class MapLabelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Map_Label

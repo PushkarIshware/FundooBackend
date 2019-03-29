@@ -41,6 +41,8 @@ from .LabelSerializer import LabelSerializer
 from .MapLabelSerializer import MapLabelSerializer
 from itertools import chain
 from .tasks import *
+from datetime import datetime
+
 User = get_user_model()
 
 
@@ -68,11 +70,8 @@ def activate(request, uidb64, token):
         if user and account_activation_token.check_token(user, token):
             user.is_active = True
             user.save()
-            json_data = {
-                "success": True,
-                "message": "Successfully registered Go to login page"
-            }
-            return HttpResponse(json_data)
+
+            return HttpResponse("<h3>Account Activated...Please Log In")
         else:
             return HttpResponse('Activation link is invalid!')
     except(TypeError, ValueError, User.DoesNotExist):
@@ -158,7 +157,11 @@ class RestLogin(CreateAPIView):
 
 
 class AddNote(CreateAPIView):
-    """Add Notes API"""
+    """
+        This API is used to add notes of logged in user.
+        Parameter: Username from token and (Title, Description, Color, etc.).
+        CreateAPIView: Used for Create operations (Method-POST)
+    """
 
     serializer_class = NoteSerializer
 
@@ -188,7 +191,11 @@ class AddNote(CreateAPIView):
 
 
 class ShowNotes(View):
-    """Show notes API"""
+    """
+    This API is used to show all notes of logged in user.
+    Parameter: Username from token.
+    View: Used for read-only operations (Method-get)
+    """
 
     @method_decorator(custom_login_required)
     def get(self, request):
@@ -271,6 +278,12 @@ class ShowNotes(View):
 class UpdateNote(UpdateAPIView):
     """Update Notes API"""
 
+    """
+        This API is used to Update notes of logged in user.
+        Parameter: Username from token, Note id and (Title, Description, Color, etc.).
+        UpdateAPIView: Used for Edit(Update,Delete) operations (Method-POST)
+    """
+
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
 
@@ -308,6 +321,12 @@ class UpdateNote(UpdateAPIView):
 class DeleteNote(UpdateAPIView):
     """Delete Notes API"""
 
+    """
+        This API is used to Delete notes of logged in user.
+        Parameter: Username from token and Note id.
+        UpdateAPIView: Used for Edit(Update,Delete) operations (Method-POST)
+    """
+
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
 
@@ -333,6 +352,12 @@ class DeleteNote(UpdateAPIView):
 class PinUnpinNote(UpdateAPIView):
     """ PinUnpin Notes API """
 
+    """
+    This API is used to Pin or Unpin notes of logged in user.
+    Parameter: Username from token and Note id.
+    UpdateAPIView: Used for Edit(Update,Delete) operations (Method-POST)
+    """
+
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
 
@@ -356,8 +381,45 @@ class PinUnpinNote(UpdateAPIView):
             print(res, e)
 
 
+class SetReminder(UpdateAPIView):
+    """
+    This API is used to Set Reminder notes of logged in user.
+    Parameter(s): Username,Note id,Date.
+    UpdateAPIView: Used for Edit(Update,Delete) operations (Method-POST)
+    """
+
+    serializer_class = NoteSerializer
+    queryset = Note.objects.all()
+
+    @method_decorator(custom_login_required)
+    def post(self, request, *args, **kwargs):
+        try:
+            res = {
+                'message': 'Something bad happened',
+                'success': False
+            }
+            queryset = Note.objects.get(pk=request.data['id'])
+
+            item = Note.objects.get(pk=request.data['id'])
+            remainder = request.data['reminder']
+            item.reminder = remainder
+            item.save()
+            res['message'] = "Update Successfully"
+            res['success'] = True
+
+            return Response(res)
+        except Exception as e:
+            print(res, e)
+
+
 class Reminder(View):
     """Reminder notes API"""
+
+    """
+        This API is used to View Reminder notes of logged in user.
+        Parameter(s): Username,Note id.
+        View: Used for View or Display operations (Method-GET)
+    """
 
     @method_decorator(custom_login_required)
     def get(self, request):
@@ -387,6 +449,12 @@ class Reminder(View):
 class ArchiveNote(UpdateAPIView):
     """ArchiveNotes Notes API"""
 
+    """
+        This API is used to Set Archive notes of logged in user.
+        Parameter(s): Username,Note id,Archive_Value.
+        UpdateAPIView: Used for Edit(Update,Delete) operations (Method-POST)
+    """
+
     serializer_class = NoteSerializer
     queryset = Note.objects.all()
 
@@ -411,8 +479,36 @@ class ArchiveNote(UpdateAPIView):
             print(res, e)
 
 
+class DeleteLabel(DestroyAPIView):
+    """Delete labels API"""
+
+    """
+        This API is used to Set Delete notes of logged in user.
+        Parameter(s): Username,Note id,Delete_Value.
+        DestroyAPIView: Used for Delete operations (Method-Delete)
+    """
+
+    @method_decorator(custom_login_required)
+    def delete(self, request, pk):
+        print("inside Delete")
+
+        res = {
+            'message': 'label Deleted',
+            'data': {},
+            'success': True
+        }
+        Label.objects.get(pk=pk).delete()
+        return Response(res)
+
+
 class CreateLabel(CreateAPIView):
     """Create Labels API"""
+
+    """
+    This API is used to Create Labels.
+    Parameter(s): Username,Note id,Label_name.
+    CreateAPIView: Used for Create operations (Method-POST)
+    """
 
     serializer_class = LabelSerializer
 
@@ -450,6 +546,12 @@ class CreateLabel(CreateAPIView):
 class Showlabels(View):
     """Show labels API"""
 
+    """
+        This API is used to Show Labels.
+        Parameter(s): Username.
+        View: Used for Create operations (Method-GET)
+    """
+
     @method_decorator(custom_login_required)
     def get(self, request):
         global note_data
@@ -478,24 +580,14 @@ class Showlabels(View):
             print(res, e)
 
 
-class DeleteLabel(DestroyAPIView):
-    """Delete labels API"""
-
-    @method_decorator(custom_login_required)
-    def delete(self, request, pk):
-        print("inside Delete")
-
-        res = {
-            'message': 'label Deleted',
-            'data': {},
-            'success': True
-        }
-        Label.objects.get(pk=pk).delete()
-        return Response(res)
-
-
 class MapLabel(CreateAPIView):
     """Map labels API"""
+
+    """
+        This API is used to Map Labels to perticular Note.
+        Parameter(s): Username,Note id,Label_name.
+        CreateAPIView: Used for Mapping operations (Method-POST)
+    """
 
     serializer_class = MapLabelSerializer
 
@@ -527,6 +619,12 @@ class MapLabel(CreateAPIView):
 class GetMapLabels(View):
     """Show Map labels API"""
 
+    """
+        This API is used to View Mapped Labels on particular note.
+        Parameter(s): Username.
+        View: Used for View operations (Method-GET)
+    """
+
     @method_decorator(custom_login_required)
     def get(self, request):
         uname = request.user_id
@@ -554,6 +652,11 @@ class GetMapLabels(View):
 
 class RemoveMapLabel(DestroyAPIView):
     """Remove labels API"""
+    """
+        This API is used to Delete label on particular note.
+        Parameter(s): Username,Note id,Label_id.
+        DestroyAPIView: Used for Delete operations (Method-DELETE)
+    """
 
     @method_decorator(custom_login_required)
     def delete(self, request, pk):
@@ -570,6 +673,12 @@ class RemoveMapLabel(DestroyAPIView):
 
 class RestProfile(CreateAPIView):
     """Upload Profile Photo API"""
+
+    """
+        This API is used to upload Profile Picture of logged in user to S3 Bucket.
+        Parameter(s): Username,Image.
+        CreateAPIView: Used for Upload operations (Method-POST)
+    """
 
     serializer_class = NoteSerializer
 
@@ -608,6 +717,12 @@ class RestProfile(CreateAPIView):
 class ImageUrl(View):
     """ Show Profile Photo API """
 
+    """
+        This API is used to Get Profile Picture of logged in user from S3 Bucket.
+        Parameter(s): Username,Image.
+        View: Used for Upload operations (Method-GET)
+    """
+
     @method_decorator(custom_login_required)
     def get(self, request):
         uname = request.user_id
@@ -632,6 +747,12 @@ class ImageUrl(View):
 class AddCollaborator(CreateAPIView):
     """Add Collaborator API"""
 
+    """
+        This API is used to Add Collaborator to particular note.
+        Parameter(s): Username,Note_id.
+        CreateAPIView: Used for Upload operations (Method-POST)
+    """
+
     serializer_class = NoteSerializer
 
     @method_decorator(custom_login_required)
@@ -655,6 +776,12 @@ class AddCollaborator(CreateAPIView):
 
 class ShowCollaborators(View):
     """ Show Collaborator API """
+
+    """
+        This API is used to Show Collaborator to particular note.
+        Parameter(s): Username,Note_id.
+        View: Used for Upload operations (Method-GET)
+    """
 
     @method_decorator(custom_login_required)
     def get(self, request):
@@ -703,6 +830,12 @@ class ShowCollaborators(View):
 class DeleteCollaborator(DestroyAPIView):
     """Delete Collaborator API"""
 
+    """
+        This API is used to Delete Collaborator to particular note.
+        Parameter(s): Username,Note_id,Collaborator's_Name.
+        DestroyAPIView: Used for Upload operations (Method-DELETE)
+    """
+
     @method_decorator(custom_login_required)
     def delete(self, request, pk):
         print("inside Delete")
@@ -720,7 +853,7 @@ class DeleteCollaborator(DestroyAPIView):
 def home(request):
     return render(request, 'home.html')
 
-from datetime import datetime,timedelta
+
 def date(request):
     today_date = datetime.now().date()
     print(type(today_date))
@@ -736,20 +869,19 @@ def date(request):
         if i['reminder']:
             date_type.append(datetime.strptime(i['reminder'], '%d/%m/%Y').date())
 
-
     print(date_type)
 
     for i in date_type:
         print(i)
         z = i - today_date
-        z=str(z)
-        diff=z[0:1]
-        diff_int=int(diff)
+        z = str(z)
+        diff = z[0:1]
+        diff_int = int(diff)
         # print(diff_int)
 
-        mail_date_diff = diff_int//2
-        print(mail_date_diff)
+        mail_date_diff = diff_int // 2
 
+        # b=datetime.datetime.timedelta(days=mail_date_diff)
         # dt = timedelta.days(str(mail_date_diff))
         # print(type(dt))
         # print(dt,'----------------')

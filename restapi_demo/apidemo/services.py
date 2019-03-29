@@ -10,19 +10,16 @@
 """
 
 import redis
-from django.http import HttpResponse
-
-import redis
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 
 class redis_methods:
 
-    def set_token(key, value):
+    def set_token(key, value):  # used to set token to redis server
         r.set(key, value)
         print('token set')
 
-    def get_token(key):
+    def get_token(key):         # used to get token to redis server
         token = r.get(key)
         return token

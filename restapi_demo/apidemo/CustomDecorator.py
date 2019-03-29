@@ -19,24 +19,23 @@ from .services import redis_methods
 
 def custom_login_required(function):
     def wrap(request, *args, **kwargs):
-        token = request.META.get('HTTP_AUTHORIZATION')
+        token = request.META.get('HTTP_AUTHORIZATION')  # get token from LocalStorage
 
-        token_decode = jwt.decode(token, os.getenv("SIGNATURE"), algorithms=['HS256'])
+        token_decode = jwt.decode(token, os.getenv("SIGNATURE"), algorithms=['HS256'])  # decode given token
 
-        uname = token_decode.get('username')
+        username = token_decode.get('username')  # retrieve username from token
 
-        user_id = User.objects.get(username=uname)
+        user_id = User.objects.get(username=username)  # get user_id from username
 
-        entry = User.objects.get(pk=user_id.id)
+        is_present = User.objects.get(pk=user_id.id)  # search to database using user_id
 
         request.user_id = user_id
 
-        redis_methods.set_token('token', token)
-        # print('logged in redis token----------------', redis_methods.get_token('token'))
+        # redis_methods.set_token('token', token)
 
-        if entry:
+        if is_present:  # if present then go to next step
             return function(request, *args, **kwargs)
         else:
-            raise PermissionDenied
+            raise PermissionDenied  # show invalid user entry
 
     return wrap

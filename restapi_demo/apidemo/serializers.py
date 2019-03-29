@@ -1,12 +1,12 @@
 from django.forms import forms
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import User
-import re
-from .models import Note, Label, Map_Label
+# from django.contrib.auth.models import User
+
 
 User = get_user_model()
 
+# Register serializer for storing New user to database
 
 class registrationSerializer(serializers.ModelSerializer):
     username = serializers.CharField(max_length=20)
@@ -30,32 +30,3 @@ class registrationSerializer(serializers.ModelSerializer):
             raise forms.ValidationError(
                 "password and confirm_password does not match")
 
-
-# class LoginSerializer(serializers.ModelSerializer):
-#     username = serializers.CharField(max_length=20)
-#     password = serializers.CharField(style={'input_type': 'password'})
-#
-#     class Meta:
-#         model = User
-#         fields = ('username', 'password',)
-#
-#
-# class NoteSerializer(serializers.ModelSerializer):
-#     # Serializer for Notes
-#
-#     class Meta:
-#         model = Note
-#         fields = (
-#         'title', 'description', 'is_archived', 'reminder', 'user', 'color', 'is_pinned', 'is_deleted', 'label')
-#
-#
-# class LabelSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Label
-#         fields = ('id','label_name', 'user')
-#
-#
-# class MapLabelSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Map_Label
-#         fields = ('label_id', 'user', 'note')

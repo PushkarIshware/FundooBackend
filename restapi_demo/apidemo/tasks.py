@@ -1,13 +1,14 @@
-import string
-
+"""
+******************************************************************************
+* Purpose:  Service File for Celery and RabitMQ.
+*
+* @author:  Pushkar Ishware
+* @version: 3.7
+* @since:   28-3-2018
+*
+******************************************************************************
+"""
 from django.contrib.auth.models import User
-from django.http import request
-from django.template.loader import render_to_string
-from django.utils.crypto import get_random_string
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
-
-from .tokens import account_activation_token
 from .views import *
 
 from celery import shared_task
