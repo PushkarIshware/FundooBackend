@@ -1,0 +1,14 @@
+{% load staticfiles %}
+
+<title>Index</title>
+{#  Main HomePage contain links for login and registration #}
+{% block content %}
+<center>
+    <h1>Welcome</h1><br><br>
+
+    <b><a href="{% url 'rest_register' %}">Register Yourself</a><br>or<br>
+    <!--<a href="{% url 'rest_login' %}">Login</a></b>-->
+        <a href="{% url 'log_me' %}">Login</a></b>
+</center>
+{% block javascript %}
+{% endblock %}

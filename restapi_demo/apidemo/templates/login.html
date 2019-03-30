@@ -1,0 +1,21 @@
+
+<left>
+  <body>
+<h2>Login</h2>
+<form method="post" action="{% url 'login_user' %}">{% csrf_token %}
+  <input type="text" name="username" placeholder="username" required><br><br>
+    <input type="password" name="password" placeholder="password" required><br><br>
+  {% if messages %}
+<p class="messages">
+{% for message in messages %}
+<p style="color:red"  {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</p>
+{% endfor %}
+</p>
+{% endif %}
+  <button type="submit">Login</button>
+</form>
+  <a href="{% url 'password_reset' %}">Forgot Password ?</a><br><br>
+  <a href="{% url 'rest_register' %}">Register Here</a><br><br>
+
+</body>
+</left>
