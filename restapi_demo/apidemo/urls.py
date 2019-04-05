@@ -93,9 +93,14 @@ urlpatterns = [
     url(r'^oauth/', include('social_django.urls', namespace='social')),
     url(r'^home$', views.home, name='home'),
 
+    # Auto_Delete_Archive
+    path('api/auto', views.Auto_Delete_Archive, name='Auto_Delete_Archive'),
 
     # date
-    path('api/date', views.date, name="date"),
+    # path('api/date', views.date, name="date"),
+
+    # rem
+    path('api/rem', views.rem, name="rem"),
 
     # Email Activation
     url(r'^activate/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',

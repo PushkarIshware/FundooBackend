@@ -14,6 +14,7 @@ import io
 import os
 
 import botocore
+from django.db.models import Q
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_text
@@ -40,8 +41,7 @@ from .NoteSerializer import NoteSerializer
 from .LabelSerializer import LabelSerializer
 from .MapLabelSerializer import MapLabelSerializer
 from itertools import chain
-from .tasks import *
-from datetime import datetime
+from .tasks import Auto_Delete_Archive,Send_mail
 
 User = get_user_model()
 
@@ -95,17 +95,17 @@ class RestRegistration(CreateAPIView):
             user.is_active = False
             user.save()
 
-            message = render_to_string('acc_active_email.html', {
-                'user': user,
-                'domain': request.META.get('HTTP_HOST'),
-                'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
-                'token': account_activation_token.make_token(user),
-            })
-            mail_subject = 'Activate your account...'
-            to_email = email
-            send_email = EmailMessage(mail_subject, message, to=[to_email])
-            send_email.send()
-            # Send_mail.delay(username, email)
+            # message = render_to_string('acc_active_email.html', {
+            #     'user': user,
+            #     'domain': request.META.get('HTTP_HOST'),
+            #     'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
+            #     'token': account_activation_token.make_token(user),
+            # })
+            # mail_subject = 'Activate your account...'
+            # to_email = email
+            # send_email = EmailMessage(mail_subject, message, to=[to_email])
+            # send_email.send()
+            Send_mail.delay(username)
             res['message'] = "registered Successfully...Please activate your Account"
             res['success'] = True
             return Response(res)
@@ -268,7 +268,7 @@ class ShowNotes(View):
             res['data'] = note_json
             res['success'] = True
             j = json.dumps(res)
-            demo_celery.delay()
+            # Auto_Delete_Archive.delay(uname)    # celery task for auto delete and archive
             return HttpResponse(result_json)
 
         except Exception as e:
@@ -299,17 +299,20 @@ class UpdateNote(UpdateAPIView):
             item = Note.objects.get(pk=request.data['id'])
             title = request.data['title']
             des = request.data['description']
-            color = request.data['color']
             remainder = request.data['reminder']
+            color = request.data['color']
+            # pin = request.data['is_pinned']
+            # archive = request.data['is_archived']
 
             item.title = title
             item.description = des
-            item.color = color
             item.reminder = remainder
+            item.reminder_date = remainder
+            item.color = color
+            # item.is_pinned = pin
+            # item.is_archived = archive
 
             item.save()
-            # UpdateNote()
-
             res['message'] = "Update Successfully"
             res['success'] = True
 
@@ -341,6 +344,8 @@ class DeleteNote(UpdateAPIView):
             item = Note.objects.get(pk=request.data['id'])
             delete = request.data['is_deleted']
             item.is_deleted = delete
+            delete_time = request.data['deleted_time']
+            item.trash_time = delete_time
             item.save()
             res['message'] = "Delete Successfully"
             res['success'] = True
@@ -393,6 +398,7 @@ class SetReminder(UpdateAPIView):
 
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
+        uname = request.user_id
         try:
             res = {
                 'message': 'Something bad happened',
@@ -402,8 +408,25 @@ class SetReminder(UpdateAPIView):
 
             item = Note.objects.get(pk=request.data['id'])
             remainder = request.data['reminder']
-            item.reminder = remainder
+            item.reminder=remainder
+            item.reminder_date = remainder
             item.save()
+
+            user = User.objects.get(username=uname)
+            email = user.email
+            # email for reminder
+            message = render_to_string('reminder_notify.html', {
+                'user': uname,
+                'notify': remainder,
+                'domain': request.META.get('HTTP_HOST'),
+                # 'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
+                # 'token': account_activation_token.make_token(user),
+            })
+            mail_subject = 'Reminder Notifications...'
+            to_email = str(email)
+            send_email = EmailMessage(mail_subject, message, to=[to_email])
+            send_email.send()
+
             res['message'] = "Update Successfully"
             res['success'] = True
 
@@ -470,35 +493,15 @@ class ArchiveNote(UpdateAPIView):
             print(item)
             print(item.id)
             archive = request.data['is_archived']
+            archive_time = request.data['archive_time']
             item.is_archived = archive
+            item.archive_time = archive_time
             item.save()
             res['message'] = "Archived Successfully"
             res['success'] = True
             return Response(res)
         except Exception as e:
             print(res, e)
-
-
-class DeleteLabel(DestroyAPIView):
-    """Delete labels API"""
-
-    """
-        This API is used to Set Delete notes of logged in user.
-        Parameter(s): Username,Note id,Delete_Value.
-        DestroyAPIView: Used for Delete operations (Method-Delete)
-    """
-
-    @method_decorator(custom_login_required)
-    def delete(self, request, pk):
-        print("inside Delete")
-
-        res = {
-            'message': 'label Deleted',
-            'data': {},
-            'success': True
-        }
-        Label.objects.get(pk=pk).delete()
-        return Response(res)
 
 
 class CreateLabel(CreateAPIView):
@@ -514,31 +517,30 @@ class CreateLabel(CreateAPIView):
 
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
-        uname = request.user_id
-        print('inside post')
+
         try:
             res = {
                 'message': 'Something bad happened',
                 'success': False
             }
-            print(uname, "-***************************")
-            uid = User.objects.get(username=uname).pk
-            print(uid)
-            print(request.data)
-            # note_id = Note.objects.get(pk=request.data['id'])
+            uname = request.user_id
+            if uname and request.data['label_name']:
+                uid = User.objects.get(username=uname).pk
 
-            serializer = LabelSerializer(data=request.data)
-            label = request.data['label_name']
-            if request.data['label_name'] is "":
-                raise Exception("label name required ")
+                # note_id = Note.objects.get(pk=request.data['id'])
 
-            if serializer.is_valid():
-                serializer.user_id = uid
-                serializer.save(user_id=uid)
-                res['message'] = "label added"
-                res['success'] = True
+                serializer = LabelSerializer(data=request.data)
+
+                if serializer.is_valid():
+                    serializer.user_id = uid
+                    serializer.save(user_id=uid)
+                    res['message'] = "label added"
+                    res['success'] = True
+                    return JsonResponse(res)
                 return JsonResponse(res)
-            return JsonResponse(res)
+            else:
+                res['message'] = 'No valid data provided'
+                return JsonResponse(res)
         except Exception as e:
             print(res, e)
 
@@ -555,29 +557,60 @@ class Showlabels(View):
     @method_decorator(custom_login_required)
     def get(self, request):
         global note_data
-        uname = jwt_tok(request)
-        uname = jwt_tok(request)
-        # print(uname,"------------------------------------")
-
         res = {
             'message': 'Something bad happened',
             'data': {},
             'success': False
         }
+        uname = request.user_id
         try:
-            uid = User.objects.get(username=uname).pk
-            note_data = Label.objects.filter(user_id=uid).values('id', 'label_name', 'user')
-            data_list = []
-            for i in note_data:
-                data_list.append(i)
-            z = json.dumps(data_list)
-            res['message'] = "Showing data."
-            res['data'] = z
-            res['success'] = True
-            return HttpResponse(z)
-
+            if uname:
+                uid = User.objects.get(username=uname).pk
+                note_data = Label.objects.filter(user_id=uid).values('id', 'label_name', 'user')
+                data_list = []
+                for i in note_data:
+                    data_list.append(i)
+                z = json.dumps(data_list)
+                res['message'] = "Showing data."
+                res['data'] = z
+                res['success'] = True
+                return HttpResponse(z)
+            else:
+                res['message'] = 'No valid data provided'
+                return JsonResponse(res)
         except Exception as e:
             print(res, e)
+
+
+class DeleteLabel(DestroyAPIView):
+    """Delete labels API"""
+
+    """
+        This API is used to Set Delete notes of logged in user.
+        Parameter(s): Username,Note id,Delete_Value.
+        DestroyAPIView: Used for Delete operations (Method-Delete)
+    """
+
+    @method_decorator(custom_login_required)
+    def delete(self, request, pk):
+        uname = request.user_id
+        res = {
+            'message': 'Something bad happened',
+            'data': {},
+            'success': False
+        }
+        uid = User.objects.get(username=uname).pk
+        try:
+            if pk:
+                Label.objects.get(pk=pk).delete()
+                res['message'] = 'label deleted'
+                res['success'] = True
+                return Response(res)
+            else:
+                res['message'] = 'Note id not found'
+                return JsonResponse(res)
+        except Exception as e:
+            return res
 
 
 class MapLabel(CreateAPIView):
@@ -600,20 +633,23 @@ class MapLabel(CreateAPIView):
             'data': {},
             'success': False
         }
-        if User.objects.get(username=uname).pk:
-            uid = User.objects.get(username=uname).pk
-            card = Note.objects.get(pk=request.data['id'])
-            cid = card.id
-            label = Label.objects.get(pk=request.data['label_id'])
-            lid = label.id
-            mapping = Map_Label.objects.create(label_id=Label.objects.get(id=lid),
-                                               user=User.objects.get(id=uid),
-                                               note=Note.objects.get(id=cid),
-                                               map_label_name=Label.objects.get(label_name=label))
-            res['message'] = 'label added'
-            res['success'] = True
-            res['data'] = {"label_id": lid}
-            return Response(res)
+        try:
+            if User.objects.get(username=uname).pk:
+                uid = User.objects.get(username=uname).pk
+                card = Note.objects.get(pk=request.data['id'])
+                cid = card.id
+                label = Label.objects.get(pk=request.data['label_id'])
+                lid = label.id
+                mapping = Map_Label.objects.create(label_id=Label.objects.get(id=lid),
+                                                   user=User.objects.get(id=uid),
+                                                   note=Note.objects.get(id=cid),
+                                                   map_label_name=Label.objects.get(label_name=label))
+                res['message'] = 'label added to given note'
+                res['success'] = True
+                res['data'] = {"label_id": lid}
+                return Response(res)
+        except Exception as e:
+            return res
 
 
 class GetMapLabels(View):
@@ -634,18 +670,22 @@ class GetMapLabels(View):
             'success': False
         }
         try:
-            uid = User.objects.get(username=uname).pk
-            note_data = Map_Label.objects.filter(user_id=uid).values('id', 'user_id',
-                                                                     'map_label_name',
-                                                                     'note_id')
-            data_list = []
-            for i in note_data:
-                data_list.append(i)
-            z = json.dumps(data_list)
-            res['message'] = "Showing data."
-            res['data'] = z
-            res['success'] = True
-            return HttpResponse(z)
+            if uname:
+                uid = User.objects.get(username=uname).pk
+                note_data = Map_Label.objects.filter(user_id=uid).values('id', 'user_id',
+                                                                         'map_label_name',
+                                                                         'note_id')
+                data_list = []
+                for i in note_data:
+                    data_list.append(i)
+                z = json.dumps(data_list)
+                res['message'] = "Showing data."
+                res['data'] = z
+                res['success'] = True
+                return HttpResponse(z)
+            else:
+                res['message'] = 'given user not present'
+                return Response(res)
         except Exception as e:
             print(res, e)
 
@@ -686,32 +726,37 @@ class RestProfile(CreateAPIView):
     def post(self, request, *args, **kwargs):
         print("inside post")
         res = {
-            'message': 'Image Uploaded',
+            'message': 'something bad happed',
             'data': {},
-            'success': True
+            'success': False
         }
         uname = request.user_id
-        pic = request.data['profile1']
+        try:
+            if uname:
+                pic = request.data['profile1']
 
-        # working code
-        pic = pic[22:]
-        image = base64.urlsafe_b64decode(pic)
-        buf = io.BytesIO(image)
-        img = Image.open(buf, 'r').convert("RGB")
-        img.show()
-        out_img = io.BytesIO()
-        s3 = boto3.client('s3')
-        img.save(out_img, format="jpeg")
-        img.seek(0)
-        print('------------', img)
-        img3 = Image.open(out_img)
-        print('img 3-----', img3)
-        print(img3.size)
-        img3.save(os.path.join('/home/admin1/Desktop/' + str(uname) + '.jpeg'), 'JPEG')
-        file = open('/home/admin1/Desktop/' + str(uname) + '.jpeg', 'rb')
-        s3.upload_fileobj(file, 'bucketprofile', Key=str(uname) + ".jpeg", ExtraArgs={'ACL': 'public-read'})
-        z = json.dumps(res)
-        return HttpResponse(z)
+                # working code
+                pic = pic[22:]
+                image = base64.urlsafe_b64decode(pic)
+                buf = io.BytesIO(image)
+                img = Image.open(buf, 'r').convert("RGB")
+                img.show()
+                out_img = io.BytesIO()
+                s3 = boto3.client('s3')
+                img.save(out_img, format="jpeg")
+                img.seek(0)
+                img3 = Image.open(out_img)
+                img3.save(os.path.join('/home/admin1/Desktop/' + str(uname) + '.jpeg'), 'JPEG')
+                file = open('/home/admin1/Desktop/' + str(uname) + '.jpeg', 'rb')
+                s3.upload_fileobj(file, 'bucketprofile', Key=str(uname) + ".jpeg", ExtraArgs={'ACL': 'public-read'})
+                res['message'] = 'image uploaded'
+                res['success'] = True
+                z = json.dumps(res)
+                return HttpResponse(z)
+            else:
+                res['message'] = 'user not found'
+        except Exception as e:
+            print(res)
 
 
 class ImageUrl(View):
@@ -726,7 +771,7 @@ class ImageUrl(View):
     @method_decorator(custom_login_required)
     def get(self, request):
         uname = request.user_id
-
+        # Auto_Delete_Archive.delay(uname)
         link = "https://s3.ap-south-1.amazonaws.com/bucketprofile/" + str(uname) + ".jpeg"
 
         s3 = boto3.resource('s3')
@@ -757,6 +802,9 @@ class AddCollaborator(CreateAPIView):
 
     @method_decorator(custom_login_required)
     def post(self, request, *args, **kwargs):
+        uname = request.user_id
+        user = User.objects.get(username=uname)
+        email = user.email
         print("inside post")
         res = {
             'message': 'collaborated successfully',
@@ -769,6 +817,19 @@ class AddCollaborator(CreateAPIView):
         uid = User.objects.get(username=new_user)
         card_details.collaborate.add(uid)
         card_details.save()
+        new_user_email = uid.email
+
+        message = render_to_string('collaborator_notify.html', {
+            'user': uname,
+            'domain': request.META.get('HTTP_HOST'),
+            # 'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
+            # 'token': account_activation_token.make_token(user),
+        })
+        mail_subject = 'collaborator notifications...'
+        to_email = str(new_user_email)
+        send_email = EmailMessage(mail_subject, message, to=[to_email])
+        send_email.send()
+
         print(uid)
 
         return Response(res)
@@ -854,36 +915,53 @@ def home(request):
     return render(request, 'home.html')
 
 
-def date(request):
-    today_date = datetime.now().date()
-    print(type(today_date))
-    uname = "ishware"
+# def date(request):
+#     today_date = datetime.now().date()
+#     print(type(today_date))
+#     uname = "ishware"
+#
+#     uid = User.objects.get(username=uname).pk
+#
+#     note_rem = Note.objects.filter(user_id=uid).values()
+#     # print(note_rem)
+#
+#     date_type = []
+#     for i in note_rem:
+#         if i['reminder']:
+#             date_type.append(datetime.strptime(i['reminder'], '%d/%m/%Y').date())
+#
+#     print(date_type)
+#
+#     for i in date_type:
+#         print(i)
+#         z = i - today_date
+#         z = str(z)
+#         diff = z[0:1]
+#         diff_int = int(diff)
+#         # print(diff_int)
+#
+#         mail_date_diff = diff_int // 2
+#
+#         # b=datetime.datetime.timedelta(days=mail_date_diff)
+#         # dt = timedelta.days(str(mail_date_diff))
+#         # print(type(dt))
+#         # print(dt,'----------------')
+#         # # mail_date = today_date + datetime.timedelta(mail_date_diff)
+#         # print(mail_date)
 
-    uid = User.objects.get(username=uname).pk
+def rem(request):
+    uname="akshay"
+    user = User.objects.get(username=uname)
+    rem_list = Note.objects.filter(~Q(reminder=None), user_id=user).values('id','reminder','reminder_date')
+    print(rem_list)
 
-    note_rem = Note.objects.filter(user_id=uid).values()
-    # print(note_rem)
+    today = datetime.datetime.today().date()
+    print(today)
 
-    date_type = []
-    for i in note_rem:
-        if i['reminder']:
-            date_type.append(datetime.strptime(i['reminder'], '%d/%m/%Y').date())
+    for i in rem_list:
+        mid = (i['reminder_date'].date() - today) - datetime.timedelta(days=1)
+        print(mid)
+        notify_date = today + mid   # on this day we have to send notification mail
+        print(notify_date)
 
-    print(date_type)
 
-    for i in date_type:
-        print(i)
-        z = i - today_date
-        z = str(z)
-        diff = z[0:1]
-        diff_int = int(diff)
-        # print(diff_int)
-
-        mail_date_diff = diff_int // 2
-
-        # b=datetime.datetime.timedelta(days=mail_date_diff)
-        # dt = timedelta.days(str(mail_date_diff))
-        # print(type(dt))
-        # print(dt,'----------------')
-        # # mail_date = today_date + datetime.timedelta(mail_date_diff)
-        # print(mail_date)
