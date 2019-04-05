@@ -13,7 +13,7 @@ import os
 import jwt
 from django.contrib.auth.models import User
 from rest_framework.exceptions import PermissionDenied
-
+from rest_framework_jwt.serializers import VerifyJSONWebTokenSerializer
 from .services import redis_methods
 
 

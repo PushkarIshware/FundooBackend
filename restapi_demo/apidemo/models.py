@@ -13,6 +13,9 @@ class Note(models.Model):
     description = models.TextField()  # for add descriptions
     created_time = models.DateTimeField(auto_now_add=True, null=True)  # for created time which is auto
     reminder = models.CharField(default=None, null=True, max_length=25)  # for set reminders notes
+
+    # reminder = models.DateTimeField(blank=True, null=True)
+
     is_archived = models.BooleanField(default=False)  # for archive notes
     is_deleted = models.BooleanField(default=False)  # for delete notes
     color = models.CharField(default=None, max_length=50, blank=True, null=True)  # for set color
@@ -23,6 +26,9 @@ class Note(models.Model):
     collaborate = models.ManyToManyField(User, null=True, blank=True, related_name='collaborated_user')  # for
     # collaborator (MtM fields)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owner', null=True, blank=True)  # for
+    archive_time = models.DateTimeField(blank=True, null=True)  # when note archived
+    trash_time = models.DateTimeField(blank=True, null=True)  # when note trashed
+    reminder_date = models.DateTimeField(blank=True, null=True)  # reminder datatype is date
 
     # storing user details
 
@@ -51,6 +57,7 @@ class Map_Label(models.Model):
     note = models.ForeignKey(Note, on_delete=models.CASCADE, null=True, blank=True)
     # for which note we adding given label
     map_label_name = models.CharField(max_length=50)
+
     # mapped label name
 
     def __str__(self):
