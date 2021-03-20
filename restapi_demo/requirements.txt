@@ -23,7 +23,7 @@ djangorestframework-stubs==0.3.0
 docutils==0.14
 execnet==1.5.0
 idna==2.8
-Jinja2==2.10
+Jinja2==2.11.3
 jmespath==0.9.3
 MarkupSafe==1.1.0
 more-itertools==5.0.0
